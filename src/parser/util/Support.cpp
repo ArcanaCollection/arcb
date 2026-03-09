@@ -13,10 +13,10 @@
 #include <variant>
 #include <charconv>
 #include <algorithm>
-#include <filesystem>
 
 
 USE_MODULE(Arcana);
+
 
 
 
@@ -107,7 +107,7 @@ LANGUAGE:
   It allows the use of native Arcana statements, variable declarations, and tasks, 
   with the ability to be customized through attributes that define their behavior and execution order.
   In particular, body tasks are grammar-less, meaning no control over their content is performed.
-  This is because we wanted to offer users the freedom to use their preferred interpreter 
+  This is because we wanted to offer users the freedom to use their preferred engine 
   to execute the instructions.
   This means no custom statements like if/for/while, no strange symbols, and no overly complex syntax.
   The only exception is the ability to expand variables declared in Arcana within task statements.
@@ -120,7 +120,7 @@ LANGUAGE:
                                                     Any use of profiles not declared in this way will 
                                                     raise an error.
 
-    using default interpreter <path to interpreter> Allows the user to define the default interpreter 
+    using default engine <path to engine> Allows the user to define the default engine 
                                                     for task bodies. 
                                                     By default, /bin/bash will be used.
     
@@ -243,7 +243,7 @@ LANGUAGE:
 
     @cache <command> <var list>     Untrack, Track and Store cache, see more in CACHE.
 
-    @interpreter <interpreter>      Force the task to be executed with the specified interpreter.
+    @engine <engine>      Force the task to be executed with the specified engine.
     
     @multithread                    Enable the multithread for the selected task, not guaranteed.
 
@@ -301,8 +301,8 @@ EXAMPLES:
  * @param b Second string.
  * @return Edit distance between @p a and @p b.
  */
-std::size_t levenshtein_distance(const std::string& a,
-                                 const std::string& b) noexcept
+std::size_t Support::levenshtein_distance(const std::string_view& a,
+                                 const std::string_view& b) noexcept
 {
     const std::size_t len1 = a.size();
     const std::size_t len2 = b.size();
@@ -361,18 +361,22 @@ std::size_t levenshtein_distance(const std::string& a,
  * @param match Grammar match containing error information.
  * @return Arcana_Result::ARCANA_RESULT__NOK
  */
-Arcana_Result Support::ParserError::operator() (const std::string& ctx, const Grammar::Match& match) const
+Arcana_Result Support::Parser_Error(const std::string& ctx, const Grammar::Match& match, Scan::Lexer& lexer)
 {
     const auto& [token, found, semtypes, _] = match.Error;
 
     std::string       escaping;
-    std::string       s(token.start + 1, '~');
+    std::string       s(token.start, '~');
     std::string       symbol(token.end, '^');
     std::stringstream ss;
 
+    ss << "[" << ANSI_BRED << "ERROR" << ANSI_RESET << "] " <<  "In file " << ANSI_FG(217, 150, 38) << ANSI_BOLD << ctx << ANSI_RESET 
+       << ":" << ANSI_FG(217, 150, 38) << ANSI_BOLD << token.line << ANSI_RESET 
+       << " near the statement:\n" 
+       << ANSI_FG(252, 240, 190)  << lexer[token] << ANSI_RESET << std::endl;
+
     // BUILD A VISUAL DIAGNOSTIC LINE WITH A CARET RANGE UNDER THE OFFENDING TOKEN.
-    ss << "[" << TOKEN_RED("SYNTAX ERROR") << "] In file " << ANSI_BOLD << ctx << ANSI_RESET << ", line " << ANSI_BOLD << token.line << ": " << lexer[token] << ANSI_RESET << std::endl;
-    ss << TOKEN_RED("               +~~~~~~~~~~~~~~~~~~~~~~~~" << s << symbol) << std::endl;
+    ss << TOKEN_RED(s << symbol) << std::endl << std::endl;
 
     // NORMALIZE SPECIAL LEXEMES FOR OUTPUT.
     escaping = (token.lexeme == "\n") ? "<New Line>" : token.lexeme;
@@ -404,56 +408,6 @@ Arcana_Result Support::ParserError::operator() (const std::string& ctx, const Gr
     return Arcana_Result::ARCANA_RESULT__NOK;
 }
 
-
-/**
- * @brief Format and print a semantic error produced during analysis.
- *
- * @param ctx Source context (typically a file path).
- * @param ao Semantic analysis output (error and optional hint).
- * @param match Grammar match containing token information.
- * @return Arcana_Result::ARCANA_RESULT__NOK
- */
-Arcana_Result Support::SemanticError::operator() (const std::string& ctx, const Support::SemanticOutput& ao, const Grammar::Match& match) const
-{
-    const auto& [token, found, semtypes, _] = match.Error;
-
-    std::stringstream ss;
-
-    // PRINT ERROR HEADER WITH SOURCE LOCATION AND INPUT LINE.
-    ss << "[" << TOKEN_RED("SEMANTIC ERROR") << "] In file " << ANSI_BOLD << ctx << ANSI_RESET << ", line " << ANSI_BOLD << token.line << ": " << lexer[token]  << ANSI_RESET << std::endl;
-    ss << ao.err << std::endl;
-
-    if (!ao.hint.empty())
-    {
-        // PRINT A SUGGESTION WHEN A CLOSE MATCH IS AVAILABLE.
-        ss << "[" << TOKEN_GREEN("HINT") << "] Did you mean " << TOKEN_CYAN(ao.hint) << "?" << std::endl;
-    }
-
-    // FLUSH DIAGNOSTIC MESSAGE TO STDERR.
-    std::cerr << ss.str();
-
-    return Arcana_Result::ARCANA_RESULT__NOK;
-}
-
-
-/**
- * @brief Format and print a post-processing error.
- *
- * @param ctx Source context (typically a file path).
- * @param err Error message.
- * @return Arcana_Result::ARCANA_RESULT__NOK
- */
-Arcana_Result Support::PostProcError::operator() (const std::string& ctx, const std::string& err) const
-{
-    std::stringstream ss;
-
-    // PRINT ERROR HEADER AND MESSAGE.
-    ss << "[" << TOKEN_RED("SEMANTIC ERROR") << "] In file: " << ANSI_BOLD << ctx << ANSI_RESET << std::endl;
-    ss << err << std::endl;
-    std::cerr << ss.str();
-
-    return Arcana_Result::ARCANA_RESULT__NOK;
-}
 
 
 
@@ -601,6 +555,7 @@ Arcana_Result Support::ParseArgs(int argc, char** argv, Support::Arguments &args
                 // READ PROFILE NAME.
                 args.value.found = true;
                 args.value.value = argv[i + 1];
+
                 i += 2;
                 continue;
             }
@@ -662,10 +617,10 @@ Arcana_Result Support::ParseArgs(int argc, char** argv, Support::Arguments &args
             ++i;
             continue;
         }
-        else if (arg == "--silent")
+        else if (arg == "--verbose")
         {
             // SUPPRESS RUNTIME LOGS ON STDOUT.
-            args.silent = true;
+            args.verbose = true;
             ++i;
             continue;
         }
@@ -737,13 +692,13 @@ Arcana_Result Support::HandleArgsPreParse(const Arguments &args)
     }
     else
     {
-        std::filesystem::path p(args.arcfile);
-        std::filesystem::path dir = p.parent_path();
+        fs::path p(args.arcfile);
+        fs::path dir = p.parent_path();
 
         if (!dir.empty())
         {
             std::error_code ec;
-            std::filesystem::current_path(dir, ec);
+            fs::current_path(dir, ec);
             if (ec)
             {
                 ERR("chdir failed for " << dir << ": " << ec.message());
@@ -758,7 +713,7 @@ Arcana_Result Support::HandleArgsPreParse(const Arguments &args)
 
 
 
-Arcana_Result Support::HandleArgsPostParse(const Arguments &args, Arcana::Semantic::Enviroment& env, const Arcana::Jobs::List& list)
+Arcana_Result Support::HandleArgsPostParse(const Arguments &args, Arcana::Semantic::Enviroment& env, Arcana::Jobs::List& list)
 {
     if (args.pubtasks)
     {
@@ -810,22 +765,7 @@ Arcana_Result Support::HandleArgsPostParse(const Arguments &args, Arcana::Semant
     }
     else if (args.value)
     {
-        auto vector_inline = [] (const std::vector<std::string>& vec, char sep = ',') noexcept -> std::string
-        {
-            uint32_t i = 0;
-            std::stringstream ss;
-
-            for (const auto& item : vec)
-            {
-                if (i) ss << sep << " ";
-                ss << item;
-                i++;
-            }
-
-            return ss.str();
-        };
-
-        auto print_attributes = [&vector_inline] (const Semantic::Attr::List & attrs) noexcept -> void
+        auto print_attributes = [] (const Semantic::Attr::List & attrs) noexcept -> void
         {
             std::stringstream ss;
             uint32_t          i = 0;
@@ -836,7 +776,7 @@ Arcana_Result Support::HandleArgsPostParse(const Arguments &args, Arcana::Semant
 
                 if (item.props.size())
                 {
-                    ss << " " << vector_inline(item.props, ' ');
+                    ss << " " << join(item.props, " ");
                 }
                 ss << std::endl;
 
@@ -897,6 +837,8 @@ Arcana_Result Support::HandleArgsPostParse(const Arguments &args, Arcana::Semant
                     print_line(exp);
                 }
             }
+
+            return Arcana_Result::ARCANA_RESULT__OK_AND_EXIT;
         }
         
         if (const auto& res = env.ftable.find(wanted); res != env.ftable.end())
@@ -909,7 +851,7 @@ Arcana_Result Support::HandleArgsPostParse(const Arguments &args, Arcana::Semant
             found = true;
             
             print_kv("TYPE", "Task");
-            print_kv("INTERPRETER", res->second.interpreter);
+            print_kv("ENGINE", res->second.engine.Get_Repr(true));
 
             if (res->second.attributes.size())
             {
@@ -917,6 +859,15 @@ Arcana_Result Support::HandleArgsPostParse(const Arguments &args, Arcana::Semant
                 print_attributes(res->second.attributes);
             }
 
+            if (list.All().size())
+            {
+                print_kv("SCHEDULATED", "Yes");
+            }
+            else
+            {
+                print_kv("SCHEDULATED", "No");
+            }
+  
             if (res->second.task_instrs.size())
             {
                 for (const auto& job : list.All())
@@ -928,16 +879,21 @@ Arcana_Result Support::HandleArgsPostParse(const Arguments &args, Arcana::Semant
                         {
                             print_line(instr);
                         }
+
+                        print_line("");
+
+                        break;
                     }
                 }
-
-                print_line("");
+                
                 print_ctx("TASK INSTRUCTIONS");
                 for (const auto& instr : res->second.task_instrs)
                 {
                     print_line(instr);
                 }
             }
+
+            return Arcana_Result::ARCANA_RESULT__OK_AND_EXIT;
         }
 
         if (const auto st = Core::is_symbol(wanted); st != Core::SymbolType::UNDEFINED)
@@ -952,7 +908,13 @@ Arcana_Result Support::HandleArgsPostParse(const Arguments &args, Arcana::Semant
             found = true;
             
             print_kv("TYPE", "Builtin Symbol");
-            print_kv("VALUE", value);
+            print_ctx("VALUE");
+            for (const auto& s : value)
+            {
+                print_line(s);
+            }
+
+            return Arcana_Result::ARCANA_RESULT__OK_AND_EXIT;
         }
         
         if (!found)
@@ -978,8 +940,8 @@ Arcana_Result Support::HandleArgsPostParse(const Arguments &args, Arcana::Semant
  */
 bool Support::file_exists(const std::string& filename)
 {
-    return std::filesystem::exists(filename)
-        && std::filesystem::is_regular_file(filename);
+    return fs::exists(filename)
+        && fs::is_regular_file(filename);
 }
 
 
@@ -1078,6 +1040,64 @@ std::vector<std::string> Support::split(const std::string& s, char sep) noexcept
     return result;
 }
 
+
+std::string Support::join(const std::vector<std::string>& vec, std::string sep) noexcept
+{
+    uint32_t i = 0;
+    std::stringstream ss;
+
+    for (const auto& item : vec)
+    {
+        if (i) ss << sep;
+        ss << item;
+        i++;
+    }
+
+    return ss.str();
+};
+
+
+void Support::sanificate(std::string& source, char target) noexcept
+{
+    std::size_t count = 0U;
+    for (char c : source)
+    {
+        if (c == target)
+        {
+            ++count;
+        }
+    }
+
+    if (count == 0U)
+    {
+        return; // niente da fare
+    }
+
+    const std::size_t oldSize = source.size();
+    const std::size_t newSize = oldSize + count;
+
+    source.resize(newSize);
+
+    // PASSO 2: scorri da destra verso sinistra e sposta/espandi
+    std::size_t i = oldSize;
+    std::size_t j = newSize;
+
+    while (i > 0U)
+    {
+        --i;
+        char c = source[i];
+
+        if (c == target)
+        {
+            source[--j] = c;
+            source[--j] = '\\';
+        }
+        else
+        {
+            source[--j] = c;
+        }
+    }
+}
 
 
 /**
@@ -1363,45 +1383,73 @@ std::string Support::RuleRepr(const Grammar::Rule type)
         case Grammar::Rule::IMPORT:            return "Import";
         case Grammar::Rule::USING:             return "Using";
         case Grammar::Rule::MAPPING:           return "Mapping";
-        case Grammar::Rule::ASSERT_MSG:        return "Assert";
+        case Grammar::Rule::ASSERT_MSG:        return "Assert Message";
+        case Grammar::Rule::ASSERT_ACT:        return "Assert Action";
         default:                               return "<INVALID>";
     }
 }
 
 
 
-/**
- * @brief Find the closest string to a target using Levenshtein distance.
- *
- * @param list Candidate strings.
- * @param target Target string.
- * @param max_distance Maximum distance allowed.
- * @return Closest match if found within @p max_distance, otherwise std::nullopt.
- */
-std::optional<std::string> Support::FindClosest(const std::vector<std::string>& list,
-                                                const std::string& target,
-                                                std::size_t max_distance) noexcept
+std::vector<std::string> Support::GetPathEntries() noexcept
 {
-    std::optional<std::string> best;
-    std::size_t                best_dist = max_distance;
+    static std::vector<std::string> result;
 
-    for (auto s : list)
+    if (!result.empty()) return result;
+
+    const char* raw = std::getenv("PATH");
+    if (raw == nullptr)
     {
-        auto pos = s.find("@@");
-        if (pos != std::string::npos)
-            s = s.substr(0, pos);
-
-        if (s == target)
-            continue;
-
-        const std::size_t d = levenshtein_distance(s, target);
-
-        if (d < best_dist)
-        {
-            best_dist = d;
-            best      = s;
-        }
+        return result;
     }
 
-    return best;
+    const std::string path_env{raw};
+
+#ifdef _WIN32
+    constexpr char separator = ';';
+#else
+    constexpr char separator = ':';
+#endif
+
+    std::size_t start = 0;
+
+    while (start <= path_env.size())
+    {
+        const std::size_t end = path_env.find(separator, start);
+
+        const std::string token =
+            (end == std::string::npos)
+            ? path_env.substr(start)
+            : path_env.substr(start, end - start);
+
+        if (!token.empty())
+        {
+            result.emplace_back(token);
+        }
+
+        if (end == std::string::npos)
+        {
+            break;
+        }
+
+        start = end + 1;
+    }
+
+    return result;
 }
+
+
+bool Support::Is_In_Path(const std::string& what) noexcept
+{
+    const auto& paths = Core::symbol(Core::SymbolType::PATH);
+
+    for (const auto& path : paths)
+    {
+        const fs::path fullpath = path;
+
+        if (file_exists(fullpath / what)) return true;
+    }
+
+    return false;
+}
+

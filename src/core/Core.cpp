@@ -7,7 +7,7 @@
 
 USE_MODULE(Arcana);
 
-using SymbolMap = Support::AbstractKeywordMap<std::string>;
+using SymbolMap = Support::AbstractKeywordMap<std::vector<std::string>>;
 
 /**
  * @brief Built-in symbol table used for `{arc:__...__}` expansions.
@@ -16,44 +16,46 @@ using SymbolMap = Support::AbstractKeywordMap<std::string>;
  */
 static SymbolMap builtin_symbols =
 {
-    { "__main__"       , "None"                                              },
-    { "__root__"       , std::filesystem::current_path().generic_string()    },
-    { "__version__"    , __ARCANA__VERSION__                                 },
-    { "__release__"    , __ARCANA__RELEASE__                                 },
-    { "__profile__"    , "None"                                              },
-    { "__threads__"    , "None"                                              },
-    { "__max_threads__", std::to_string(std::thread::hardware_concurrency()) },
+    { "__main__"       , {                                                     } },
+    { "__root__"       , { std::filesystem::current_path().generic_string()    } },
+    { "__path__"       , Support::GetPathEntries()                               },
+    { "__version__"    , { __ARCANA__VERSION__                                 } },
+    { "__release__"    , { __ARCANA__RELEASE__                                 } },
+    { "__profile__"    , {                                                     } },
+    { "__threads__"    , {                                                     } },
+    { "__max_threads__", { std::to_string(std::thread::hardware_concurrency()) } },
+
 
 #if defined(_WIN32)
-    { "__os__"         , "windows"  },
+    { "__os__"         , { "windows"                                           } },
 #elif defined(__APPLE__) && defined(__MACH__)
-    { "__os__"         , "macos"    },
+    { "__os__"         , { "macos"                                             } },
 #elif defined(__linux__)
-    { "__os__"         , "linux"    },
+    { "__os__"         , { "linux"                                             } },
 #elif defined(__FreeBSD__)
-    { "__os__"         , "freeBSD"  },
+    { "__os__"         , { "freeBSD"                                           } },
 #elif defined(__unix__)
-    { "__os__"         , "unix"     },
+    { "__os__"         , { "unix"                                              } },
 #else
-    { "__os__"         , "unknown"  },
+    { "__os__"         , { "unknown"                                           } },
 #endif
 
 #if defined(__x86_64__) || defined(_M_X64)
-    { "__arch__"       , "x86_64"   },
+    { "__arch__"       , { "x86_64"                                            } },
 #elif defined(__i386__) || defined(_M_IX86)
-    { "__arch__"       , "x86"      },
+    { "__arch__"       , { "x86"                                               } },
 #elif defined(__aarch64__) || defined(_M_ARM64)
-    { "__arch__"       , "aarch64"  },
+    { "__arch__"       , { "aarch64"                                           } },
 #elif defined(__arm__) || defined(_M_ARM)
-    { "__arch__"       , "arm"      },
+    { "__arch__"       , { "arm"                                               } },
 #elif defined(__riscv) || defined(__riscv__)
-    { "__arch__"       , "riscv"    },
+    { "__arch__"       , { "riscv"                                             } },
 #elif defined(__powerpc64__) || defined(__ppc64__)
-    { "__arch__"       , "ppc64"    },
+    { "__arch__"       , { "ppc64"                                             } },
 #elif defined(__powerpc__) || defined(__ppc__)
-    { "__arch__"       , "ppc"      },
+    { "__arch__"       , { "ppc"                                               } },
 #else
-    { "__arch__"       , "unknown"  },
+    { "__arch__"       , { "unknown"                                           } },
 #endif
 };
 
@@ -73,6 +75,7 @@ static std::map<Core::SymbolType, std::string> Known_Symbols_By_Token =
     { Core::SymbolType::MAX_THREADS , "__max_threads__" },
     { Core::SymbolType::OS          , "__os__"          },
     { Core::SymbolType::ARCH        , "__arch__"        },
+    { Core::SymbolType::PATH        , "__path__"        },
 };
 
 
@@ -91,6 +94,7 @@ static std::map<std::string, Core::SymbolType> Known_Symbols_By_String =
     { "__max_threads__" , Core::SymbolType::MAX_THREADS },
     { "__os__"          , Core::SymbolType::OS          },
     { "__arch__"        , Core::SymbolType::ARCH        },
+    { "__path__"        , Core::SymbolType::PATH        },
 };
 
 
@@ -130,23 +134,23 @@ static std::vector<std::string> Known_ARCHs =
 // ============================================================================
 
 /**
- * @brief Execute a single instruction by generating a script and running it via the chosen interpreter.
+ * @brief Execute a single instruction by generating a script and running it via the chosen engine.
  *
- * On Windows, if the interpreter is `cmd.exe`, a `.bat` script is generated and executed with `/d /s /c`.
+ * On Windows, if the engine is `cmd.exe`, a `.bat` script is generated and executed with `/d /s /c`.
  * On other interpreters/OSes, a plain script is generated and passed as an argument.
  *
  * @param jobname     Task/job name (used for cache script naming).
  * @param idx         Instruction index within the job.
- * @param interpreter Interpreter executable path.
+ * @param engine Executor executable path.
  * @param command     Command text to persist into the script.
  * @param echo        If true, print the command before executing.
  * @return InstructionResult containing command and exit code.
  */
 static Core::InstructionResult run_instruction(const std::string& jobname,
                                                const std::size_t  idx,
-                                               const std::string& interpreter,
+                                               Semantic::Executor& engine,
                                                const std::string& command,
-                                               const bool         echo) noexcept
+                                               const bool         echo) noexcept  
 {
     std::string             full_cmd;
     std::filesystem::path   script;
@@ -159,25 +163,21 @@ static Core::InstructionResult run_instruction(const std::string& jobname,
         MSG(command);
     }
 
-    // WRITE SCRIPT AND BUILD FULL COMMAND LINE
-#if defined(_WIN32)
-    if (interpreter.find("cmd.exe") != std::string::npos)
+    if (engine.type == Semantic::Executor::Type::FILE)
     {
-        script   = cache.WriteScript(jobname, idx, command, ".bat");
-        full_cmd = interpreter + " /d /s /c \"" + script.string() + "\"";
+        engine.argument = cache.WriteScript(jobname, idx, command, engine.ext);
     }
     else
     {
-        script   = cache.WriteScript(jobname, idx, command);
-        full_cmd = interpreter + " \"" + script.string() + "\"";
+        engine.argument = command;
     }
-#else
-    script   = cache.WriteScript(jobname, idx, command);
-    full_cmd = interpreter + " \"" + script.string() + "\"";
-#endif
+
+    const auto instruction = engine.Get_Repr();
+
+    // DBG(instruction);
 
     // EXECUTE COMMAND
-    int ret = std::system(full_cmd.c_str());
+    int ret = std::system(instruction.data());
 
     // NORMALIZE EXIT CODE
     if (ret == -1)
@@ -218,7 +218,7 @@ static Core::InstructionResult run_instruction(const std::string& jobname,
  * @param opt Runtime options (stop-on-error, max parallelism, etc.).
  * @return Core::Result containing per-instruction results and summary status.
  */
-static Core::Result run_job(const Jobs::Job& job, const Core::RunOptions& opt) noexcept
+static Core::Result run_job(Jobs::Job& job, const Core::RunOptions& opt) noexcept
 {
     Core::Result result {};
 
@@ -235,7 +235,7 @@ static Core::Result run_job(const Jobs::Job& job, const Core::RunOptions& opt) n
         for (const auto& cmd : job.instructions)
         {
             // RUN INSTRUCTION AND STORE RESULT
-            auto r = run_instruction(job.name, idx, job.interpreter, cmd, job.echo);
+            auto r = run_instruction(job.name, idx, job.engine, cmd, job.echo);
             result.results.push_back(r);
 
             // HANDLE ERROR
@@ -265,7 +265,7 @@ static Core::Result run_job(const Jobs::Job& job, const Core::RunOptions& opt) n
         auto worker = [&] (std::size_t idx)
         {
             const auto& cmd = job.instructions[idx];
-            auto        r   = run_instruction(job.name, idx, job.interpreter, cmd, job.echo);
+            auto        r   = run_instruction(job.name, idx, job.engine, cmd, job.echo);
 
             std::lock_guard<std::mutex> lock(mutex);
             result.results[idx] = r;
@@ -312,7 +312,7 @@ static Core::Result run_job(const Jobs::Job& job, const Core::RunOptions& opt) n
     return result;
 }
 
-
+ 
 
 // ============================================================================
 // CORE API
@@ -327,7 +327,7 @@ static Core::Result run_job(const Jobs::Job& job, const Core::RunOptions& opt) n
  * @param opt Execution options.
  * @return ARCANA_RESULT__OK on success, otherwise a failure code.
  */
-Arcana_Result Core::run_jobs(const Jobs::List& jobs, const Core::RunOptions& opt) noexcept
+Arcana_Result Core::run_jobs(Jobs::List& jobs, const Core::RunOptions& opt) noexcept
 {
     Arcana_Result result = Arcana_Result::ARCANA_RESULT__OK;
     Stopwatch sw;
@@ -338,19 +338,34 @@ Arcana_Result Core::run_jobs(const Jobs::List& jobs, const Core::RunOptions& opt
     // RUN EACH JOB
     for (auto& job : jobs.All())
     {
-        if (!opt.silent)
+        if (opt.verbose)
         {
-            ARC(ANSI_GRAY << "Running task: " << job.name << ANSI_RESET);
+            ARC("Running task: " << ANSI_BGREEN <<  job.name << ANSI_RESET);
         }
 
-        // RUN JOB AND COLLECT RESULT
+        // RUN JOB AND COLLECT RESULT 
         auto r = run_job(job, opt);
 
         // STOP EARLY ON ERROR IF REQUESTED
         if (!r.ok && opt.stop_on_error)
         {
             result = Arcana_Result::ARCANA_RESULT__NOK;
-            ERR(ANSI_GRAY << "Task failed: " << job.name << ANSI_RESET);
+            ERR("Task failed: " << ANSI_BRED <<  job.name << ANSI_RESET);
+            break;
+        }
+
+        if (job.cache.enabled && job.cache.type == Semantic::InstructionTask::Cache::Type::STORE)
+        {
+            for (auto& file : job.cache.data)
+            {
+                Arcana::Cache::Manager::Instance().Store(file);
+            }
+        }
+
+        if (job.death)
+        {
+            result = Arcana_Result::ARCANA_RESULT__NOK;
+            ERR("Task failed: " << ANSI_BRED <<  jobs.main_job << ANSI_RESET );
             break;
         }
     }
@@ -360,7 +375,7 @@ Arcana_Result Core::run_jobs(const Jobs::List& jobs, const Core::RunOptions& opt
     auto ms = sw.elapsed<>();
 
     // PRINT SUMMARY
-    if ((result == Arcana_Result::ARCANA_RESULT__OK) && (!opt.silent))
+    if (result == Arcana_Result::ARCANA_RESULT__OK)
     {
         ARC("Action '" << jobs.main_job << "' done in " << Stopwatch::format(ms));
     }
@@ -369,19 +384,30 @@ Arcana_Result Core::run_jobs(const Jobs::List& jobs, const Core::RunOptions& opt
 }
 
 
-
+ 
 /**
  * @brief Get the mutable value associated to a built-in symbol type.
  * @param type Symbol type.
  * @return Reference to the stored string.
  */
-std::string& Core::symbol(Core::SymbolType type) noexcept
+std::vector<std::string> Core::symbol(Core::SymbolType type) noexcept
 {
     // MAP TYPE TO TOKEN STRING
     const std::string symbol = Known_Symbols_By_Token[type];
 
     // RETURN STORED VALUE
     return builtin_symbols[symbol];
+}
+
+
+
+std::string Core::first_symbol(Core::SymbolType type) noexcept
+{
+    // MAP TYPE TO TOKEN STRING
+    const std::string symbol = Known_Symbols_By_Token[type];
+
+    // RETURN STORED VALUE
+    return builtin_symbols[symbol].empty() ? "" : builtin_symbols[symbol][0];
 }
 
 
@@ -417,7 +443,21 @@ void Core::update_symbol(Core::SymbolType type, const std::string& val) noexcept
     const std::string symbol = Known_Symbols_By_Token[type];
 
     // UPDATE STORED VALUE
-    builtin_symbols[symbol] = val;
+    if (type == Core::SymbolType::PATH)
+    {
+        builtin_symbols[symbol].push_back(val);
+    }
+    else
+    {
+        if (builtin_symbols[symbol].empty())
+        {
+            builtin_symbols[symbol].push_back(val);
+        } 
+        else
+        {
+            builtin_symbols[symbol][0] = val;
+        }
+    }
 
     return;
 }
@@ -434,7 +474,7 @@ bool Core::is_symbol_set(Core::SymbolType type) noexcept
     // MAP TYPE TO TOKEN STRING
     const std::string symbol = Known_Symbols_By_Token[type];
 
-    return (builtin_symbols[symbol] != "None");
+    return !builtin_symbols[symbol].empty();
 }
 
 

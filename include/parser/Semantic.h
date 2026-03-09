@@ -47,6 +47,24 @@ BEGIN_MODULE(Semantic)
  */
 
 
+struct Context
+{
+    std::string source_file;
+    std::string input;
+    std::size_t lineno;
+
+    std::string str() const
+    {
+        std::stringstream ss;
+        ss << "In file " << TOKEN_ORANGE(ANSI_BOLD << source_file) 
+           << ":"        << TOKEN_ORANGE(ANSI_BOLD << lineno)  
+           << " near the statement:\n" 
+           << TOKEN_LYELLOW(input << std::endl);
+        return ss.str();
+    }
+};
+
+
 
 //    ███████╗ ██████╗ ██████╗ ██╗    ██╗ █████╗ ██████╗ ██████╗ ███████╗
 //    ██╔════╝██╔═══██╗██╔══██╗██║    ██║██╔══██╗██╔══██╗██╔══██╗██╔════╝
@@ -58,9 +76,6 @@ BEGIN_MODULE(Semantic)
 
 
 struct Rule;
-
-
-
 
 
 
@@ -102,12 +117,13 @@ enum class Type
     MAP                 ,   //!< Mapping directive for glob mapping (SOURCES -> OBJECTS)
     MULTITHREAD         ,   //!< Allow multi-thread expansion/execution semantics
     MAIN                ,   //!< Marks the main task (entry)
-    INTERPRETER         ,   //!< Select interpreter for task (or default env interpreter)
+    ENGINE              ,   //!< Select engine for task (or default env engine)
     CACHE               ,   //!< Task triggers cache
     ECHO                ,   //!< Control command echoing
     EXCLUDE             ,   //!< Exclusion pattern(s) from glob/expansion
     GLOB                ,   //!< Glob pattern(s)
     IFOS                ,   //!< OS-specific selection (mangled with @@<os>)
+    DEATH               ,
 
     ATTRIBUTE__UNKNOWN  ,   //!< Sentinel for invalid/unrecognized attribute
     ATTRIBUTE__COUNT    ,   //!< Total number of attribute types (must be last valid index + 1)
@@ -205,6 +221,7 @@ struct Attribute
     std::string name;      //!< Raw attribute name as typed in source (e.g. "pub", "requires")
     Type        type;      //!< Normalized attribute kind
     Properties  props;     //!< Attribute property tokens
+    Context     context;
 
     /**
      * @brief Default constructor yields an unknown attribute.
@@ -298,13 +315,13 @@ BEGIN_NAMESPACE(Using)
 /**
  * @brief `using ...` directive kinds supported by Arcana DSL.
  *
- * They configure environment-wide defaults, e.g. list of profiles, default interpreter,
+ * They configure environment-wide defaults, e.g. list of profiles, default engine,
  * max threads.
  */
 enum class Type
 {
     PROFILES             = 0,  //!< `using profiles ...`
-    INTERPRETER             ,  //!< `using default interpreter ...`
+    ENGINE                  ,  //!< `using default engine ...`
     THREADS                 ,  //!< `using threads ...`
 };
 
@@ -405,12 +422,6 @@ using VList       = std::vector<InstructionAssign>;
 using FList       = std::vector<InstructionTask>;
 using FListCRef   = std::vector<CRef<InstructionTask>>;
 
-/**
- * @brief Interpreter path/name, as a string.
- *
- * This is used both for env default and per-task override.
- */
-using Interpreter = std::string;
 
 
 
@@ -423,7 +434,38 @@ using Interpreter = std::string;
 //    ╚════██║   ██║   ██╔══██╗██║   ██║██║        ██║   ╚════██║    ██╔══██║██║╚██╗██║██║  ██║    ██║     ██║     ██╔══██║╚════██║╚════██║██╔══╝  ╚════██║
 //    ███████║   ██║   ██║  ██║╚██████╔╝╚██████╗   ██║   ███████║    ██║  ██║██║ ╚████║██████╔╝    ╚██████╗███████╗██║  ██║███████║███████║███████╗███████║
 //    ╚══════╝   ╚═╝   ╚═╝  ╚═╝ ╚═════╝  ╚═════╝   ╚═╝   ╚══════╝    ╚═╝  ╚═╝╚═╝  ╚═══╝╚═════╝      ╚═════╝╚══════╝╚═╝  ╚═╝╚══════╝╚══════╝╚══════╝╚══════╝
-//                                                                                                                                                                                                                                                                            
+//       
+
+
+
+struct Executor
+{
+    std::string              command;
+    std::vector<std::string> flags;
+    std::string              argument;
+    std::string              ext;
+    bool                     is_default;
+
+    enum Type { RAW, FILE }  type = FILE;
+
+    Executor ()
+        : is_default(false)
+    {}
+
+    inline std::string Get_Repr(const bool truncated = false) const  
+    {
+        if (truncated)
+        {
+            return command + " " + Support::join(flags, " ");
+        }
+
+        return command + " " + Support::join(flags, " ") + " \"" + argument + "\"";
+    }
+
+    Executor& operator=(const Executor& other) = default;
+};
+
+
 
 /**
  * @brief Attribute semantic rule descriptor.
@@ -483,13 +525,16 @@ struct AssertCheck
     std::size_t line;                 //!< Source line number (1-based)
     std::string stmt;                 //!< Raw assert statement string (for diagnostics)
     std::string lvalue;               //!< Left side expression (expanded later)
-    std::string rvalue;               //!< Right side expression (expanded later)
+    std::string raw_rvalue;               //!< Left side expression (expanded later)
+    std::vector<std::string> rvalue;               //!< Right side expression (expanded later)
     CheckType   check;                //!< Operation kind
     std::string reason;               //!< Human-readable failure reason template
     std::vector<std::string> actions; //!< Human-readable failure reason template
     Type        type;
 
-    std::filesystem::path search_path;//!< Base path used for DEPENDENCIES (lvalue appended externally)
+    Context     context;
+
+    std::vector<std::filesystem::path> search_paths;//!< Base path used for DEPENDENCIES (lvalue appended externally)
 };
 
 
@@ -506,11 +551,11 @@ struct AssertCheck
  */
 struct InstructionAssign
 {
-    std::string var_name;                     //!< Variable identifier
+    std::string              var_name;        //!< Variable identifier
     std::vector<std::string> var_value;       //!< Raw value string (may contain `{arc:...}` tokens)
-    Attr::List  attributes;                   //!< Attributes attached to this variable
-
     std::vector<std::string> glob_expansion;  //!< Result of glob expansion (if var_value is a glob)
+    Attr::List               attributes;      //!< Attributes attached to this variable
+    Context                  context;
 
     InstructionAssign() = default;
 
@@ -519,30 +564,64 @@ struct InstructionAssign
      * @param var Variable name.
      * @param val Variable value (raw, not expanded).
      */
-    InstructionAssign(const std::string& var, const std::string& val)
+    InstructionAssign(const std::string& var, const std::string* val)
         :
         var_name(var)
     {
-        var_value.push_back(val);
+        if (val) var_value.push_back(*val);
     }
 
     // copy
     InstructionAssign(const InstructionAssign& other)             = default;
     InstructionAssign& operator=(const InstructionAssign & other) = default;
 
-    inline std::string GetListValue() const
+    inline std::string GetListValue(const std::size_t end = 0, const std::size_t start = 0) const
     {
-        if (var_value.size() == 1) return var_value[0];
+        if (var_value.empty()) return "";
         
+        size_t _s = start;
+        size_t _e = (end) ? end : var_value.size(); 
+
         std::stringstream ss;
-        for (auto& v : var_value) ss << v << " ";
+        
+        for ( ; _s < _e ; ++_s) 
+        {
+            ss << var_value[_s];
+            if ((_s + 1) != _e) ss << " ";
+        }
+
         return ss.str();
     }
 
-    inline std::string GetListGlob() const
+    inline std::string GetList(const std::size_t end, const std::size_t start, const std::vector<std::string>* buffer) const
     {
+        size_t _s = start;
+        size_t _e = (end) ? end : buffer->size(); 
+
         std::stringstream ss;
-        for (auto& v : glob_expansion) ss << v << " ";
+        
+        for ( ; _s < _e ; ++_s) 
+        {
+            ss << buffer->at(_s);
+            if ((_s + 1) != _e) ss << " ";
+        }
+
+        return ss.str();
+    }
+
+    inline std::string GetListGlob(const std::size_t end = 0, const std::size_t start = 0) const
+    {
+        size_t _s = start;
+        size_t _e = (end) ? end : glob_expansion.size(); 
+
+        std::stringstream ss;
+        
+        for ( ; _s < _e ; ++_s) 
+        {
+            ss << glob_expansion[_s];
+            if ((_s + 1) != _e) ss << " ";
+        }
+
         return ss.str();
     }
 
@@ -572,6 +651,21 @@ struct InstructionAssign
 
         return {};
     }
+
+    const std::string
+    getAttrContext(const Attr::Type attr) const
+    {
+        for (const auto& a : attributes)
+            if (a.type == attr)
+                return a.context.str();
+
+        return {};
+    }
+
+    bool empty() 
+    {
+        return glob_expansion.empty() && (var_value.empty() || var_value[0] == "");
+    }
 };
 
 
@@ -583,20 +677,23 @@ struct InstructionAssign
  * - name, declared input variables, and instruction strings
  * - resolved dependencies (`dependencies`) and successor tasks (`thens`) as references
  * - attached attributes
- * - interpreter override and cache-related flags
+ * - engine override and cache-related flags
  *
  * @note Dependencies are stored as const references to tasks, meaning they must refer
  *       to tasks that outlive the `InstructionTask` instance (managed by `FTable`).
  */
 struct InstructionTask
 {
-    std::string  task_name;     //!< Task identifier
-    Task::Instrs task_instrs;   //!< Instruction strings (command templates)
+    std::string  task_name;      //!< Task identifier
+    Task::Instrs task_instrs;    //!< Instruction strings (command templates)
     FListCRef    dependencies;   //!< Resolved dependency tasks (const references)
-    FListCRef    thens;         //!< Resolved successor tasks (const references)
-    Attr::List   attributes;    //!< Attributes attached to task
-    Interpreter  interpreter;   //!< Interpreter override (if any)
+    FListCRef    thens;          //!< Resolved successor tasks (const references)
+    Attr::List   attributes;     //!< Attributes attached to task
+    Executor     engine;         //!< Executor override (if any)
+    Context      context;
     bool         expanded;
+
+    
     struct Cache
     {
         enum Type { TRACK, UNTRACK, STORE } type = UNTRACK;
@@ -645,6 +742,16 @@ struct InstructionTask
         for (const auto& a : attributes)
             if (a.type == attr)
                 return a.props;
+
+        return {};
+    }
+
+    const std::string
+    getAttrContext(const Attr::Type attr) const
+    {
+        for (const auto& a : attributes)
+            if (a.type == attr)
+                return a.context.str();
 
         return {};
     }
@@ -741,7 +848,7 @@ public:
      *
      * @return optional error message. Empty optional on success.
      */
-    const std::optional<std::string> AlignEnviroment() noexcept;
+    Arcana_Result AlignEnviroment() noexcept;
 
     /**
      * @brief Validate CLI arguments against the collected environment.
@@ -754,7 +861,7 @@ public:
      * @param args Parsed CLI arguments.
      * @return ARCANA_RESULT__OK or ARCANA_RESULT__NOK (or other codes you define).
      */
-    Arcana_Result                    CheckArgs(const Arcana::Support::Arguments& args) noexcept;
+    Arcana_Result CheckArgs(const Arcana::Support::Arguments& args) noexcept;
 
     /**
      * @brief Expand all strings in the environment.
@@ -768,20 +875,20 @@ public:
      *
      * @return optional error message. Empty optional on success.
      */
-    const std::optional<std::string> Expand() noexcept;
+    Arcana_Result Expand() noexcept;
 
     /**
      * @brief Evaluate collected assertions after expansion.
      * @return optional error message. Empty optional on success.
      */
-    const std::optional<std::string> ExecuteAsserts(std::vector<std::string>& reco_cb) noexcept;
+    Arcana_Result ExecuteAsserts(std::vector<std::string>& reco_cb) noexcept;
 
 
     
     /**
-     * @brief Get the default interpreter configured by `using default interpreter`.
+     * @brief Get the default engine configured by `using default engine`.
      */
-    Interpreter                      GetInterpreter() noexcept { return default_interpreter; }
+    Executor                      GetInterpreter() noexcept { return default_interpreter; }
 
     /**
      * @brief Get the configured max threads.
@@ -796,7 +903,7 @@ public:
 
 private:
     Profile     profile;             //!< Profiles list and selected profile
-    Interpreter default_interpreter; //!< Default interpreter for tasks without override
+    Executor default_interpreter; //!< Default engine for tasks without override
     uint32_t    max_threads;         //!< Max parallelism configured by `using threads`
 
     /**
@@ -815,6 +922,9 @@ private:
             NORMAL,
             LIST,
             INLINE,
+            FILESYSTEM,
+            SIZE,
+            EMPTY,
         };
 
         using ExpansionMap = Support::AbstractKeywordMap<Algorithm>;
@@ -824,9 +934,20 @@ private:
         const std::regex re_intern;       //!< Matches internal `{arc:__...__}` symbols
         const std::regex re_arc;          //!< Matches `{arc:NAME}` variable references
         const std::regex re_arc_mode;     //!< Matches `{arc:<mode>:<var>}` variable references
-        const std::regex re_fs;           //!< Matches `{fs:...}` filesystem search path directives
 
         const ExpansionMap Expansion_Map;
+
+        std::stringstream  error;
+
+        std::map<Algorithm, std::string> Reversed_Expansion_Map = 
+        {
+            { Algorithm::NORMAL    , ""       },
+            { Algorithm::LIST      , "list"   },
+            { Algorithm::INLINE    , "inline" },
+            { Algorithm::FILESYSTEM, "fs"     },
+            { Algorithm::SIZE      , "size"   },
+            { Algorithm::EMPTY     , "empty"  },
+        };
 
         struct List
         {
@@ -836,7 +957,12 @@ private:
                 size_t      start;
                 size_t      count;
                 size_t      pattern_len;
-                Arcana::Semantic::InstructionAssign* datasource;
+                InstructionAssign* datasource;
+                std::vector<std::string>* buffer;
+
+
+                size_t      lower_index;
+                size_t      higher_index;
             };
 
             std::string        source;
@@ -849,33 +975,17 @@ private:
          */
         explicit Expander(Enviroment& e) noexcept
             : env(e)
-            , re_intern(R"(\{arc:(__profile__|__version__|__release__|__main__|__root__|__max_threads__|__threads__|__os__|__arch__)\})")
-            , re_arc(R"(\{arc:([A-Za-z_][A-Za-z0-9_]+)\})")
-            , re_arc_mode(R"(\{arc:([a-z]+):([a-zA-Z][a-zA-Z0-9]*)\})")
-            , re_fs(R"(\{fs:([^}]+)\})")
+            , re_intern(R"(arc::(__profile__|__version__|__release__|__main__|__root__|__max_threads__|__threads__|__os__|__arch__|__path__))")
+            , re_arc(R"(arc::([A-Za-z_][A-Za-z0-9_]*)(?![A-Za-z0-9_\.]))")
+            , re_arc_mode(R"(arc::([a-zA-Z][a-zA-Z0-9]*)\.([A-Za-z][a-z]+)\(\s*([^)]*)\s*\))")
             , Expansion_Map ({
-                { "list"   , Algorithm::LIST   },
-                { "inline" , Algorithm::INLINE },
+                { "list"   , Algorithm::LIST       },
+                { "inline" , Algorithm::INLINE     },
+                { "fs"     , Algorithm::FILESYSTEM },
+                { "size"   , Algorithm::SIZE       },
+                { "empty"  , Algorithm::EMPTY      },
             })
         {}
-
-        /**
-         * @brief Expand internal tokens (`{arc:__...__}`) inside a string.
-         * @param s String to modify in-place.
-         * @return optional error message.
-         */
-        std::optional<std::string> ExpandInternals(std::string& s) noexcept;
-
-        /**
-         * @brief Expand all `{arc:NAME}` occurrences repeatedly (handles chaining/nesting).
-         * @param s String to modify in-place.
-         * @return optional error message (e.g. undefined variable or depth limit).
-         */
-        std::optional<std::string> ExpandArcAll(std::string& s,
-                                                const std::vector<Algorithm>& allowed_algorithms,
-                                                std::vector<std::string>* list_exp) noexcept;
-
-        std::optional<std::string> ExpandLists();
 
         /**
          * @brief Expand one string:
@@ -885,18 +995,10 @@ private:
          * @param s String to modify in-place.
          * @return optional error message.
          */
-        std::optional<std::string> ExpandText(std::string& s,
-                                              const std::vector<Algorithm>& allowed_algorithms,
-                                              std::vector<std::string>* list_exp = nullptr) noexcept;
-
-        /**
-         * @brief Extract all `{fs:...}` occurrences from an expanded string.
-         * @param s Expanded string to scan.
-         * @param out Output list of extracted filesystem base paths.
-         *
-         * @note This does *not* validate paths on filesystem; it only parses.
-         */
-        void ExtractFsPaths(const std::string& s, std::vector<std::filesystem::path>& out) noexcept;
+        Arcana_Result ExpandText(std::string& s,
+                                 const std::vector<Algorithm>& allowed_algorithms,
+                                 std::vector<std::string>* list_exp = nullptr, 
+                                 bool* used_algo = nullptr) noexcept;
 
         /**
          * @brief Expand one side of an assert and update `AssertCheck` accordingly.
@@ -910,7 +1012,51 @@ private:
          * @param assert Assert structure to mutate.
          * @return optional error message.
          */
-        std::optional<std::string> ExpandAssertSide(std::string& stmt, AssertCheck& assert) noexcept;
+        Arcana_Result ExpandAssertSide(std::string& stmt, AssertCheck& assert, bool rvalue = false) noexcept;
+
+        
+        std::string Get_Error() const { return error.str(); }
+
+        static std::string AlgorithmRepr(Algorithm algo)
+        {
+            switch (algo)
+            {
+                case Algorithm::NORMAL    : return ""      ;
+                case Algorithm::LIST      : return "list"  ;
+                case Algorithm::INLINE    : return "inline";
+                case Algorithm::FILESYSTEM: return "fs"    ;
+                case Algorithm::SIZE      : return "size"  ;
+                case Algorithm::EMPTY     : return "empty" ;
+            }
+
+            return "";
+        }
+    private:
+        /**
+         * @brief Extract all `{fs:...}` occurrences from an expanded string.
+         * @param s Expanded string to scan.
+         * @param out Output list of extracted filesystem base paths.
+         *
+         * @note This does *not* validate paths on filesystem; it only parses.
+         */
+        Arcana_Result ExtractFsPaths(const std::string& s, std::vector<std::filesystem::path>& out) noexcept;
+
+        /**
+         * @brief Expand internal tokens (`{arc:__...__}`) inside a string.
+         * @param s String to modify in-place.
+         * @return optional error message.
+         */
+        Arcana_Result ExpandInternals(std::string& s) noexcept;
+
+        /**
+         * @brief Expand all `{arc:NAME}` occurrences repeatedly (handles chaining/nesting).
+         * @param s String to modify in-place.
+         * @return optional error message (e.g. undefined variable or depth limit).
+         */
+        Arcana_Result ExpandArcAll(std::string& s,
+                                   const std::vector<Algorithm>& allowed_algorithms,
+                                   std::vector<std::string>* list_exp,
+                                   bool* used_algo = nullptr) noexcept;
     };
 };
 
@@ -922,7 +1068,7 @@ private:
  * Semantics:
  * - variables/tasks from `src` move into `dst` (overwriting same keys)
  * - profile list merged (append)
- * - default interpreter overwritten by src interpreter
+ * - default engine overwritten by src engine
  * - max_threads overwritten only if src.max_threads != 0
  * - asserts appended
  *
@@ -971,13 +1117,15 @@ public:
      */
     Engine();
 
+    void Set_Context(const Context& c) { _context = c; }
+
     /**
      * @brief Collect one attribute statement.
      * @param name Attribute name (raw).
      * @param prop Attribute property string (raw, may need splitting).
      * @return SemanticOutput containing status and error/hint if any.
      */
-    SemanticOutput Collect_Attribute (const std::string& name, const std::string&  prop);
+    Arcana_Result Collect_Attribute (const std::string& name, const std::string&  prop);
 
     /**
      * @brief Collect one variable assignment statement.
@@ -985,7 +1133,7 @@ public:
      * @param val  Variable value (raw).
      * @return SemanticOutput containing status and error/hint if any.
      */
-    SemanticOutput Collect_Assignment(const std::string& name, const std::string&  val, bool join = false); 
+    Arcana_Result Collect_Assignment(const std::string& name, const std::string&  val, bool join = false); 
 
     /**
      * @brief Collect one task declaration.
@@ -993,15 +1141,15 @@ public:
      * @param instrs Instruction lines.
      * @return SemanticOutput containing status and error/hint if any.
      */
-    SemanticOutput Collect_Task      (const std::string& name, const Task::Instrs& instrs);
+    Arcana_Result Collect_Task      (const std::string& name, const Task::Instrs& instrs);
 
     /**
      * @brief Collect a `using` directive.
-     * @param what Directive keyword (e.g. "profiles", "default interpreter", "threads").
+     * @param what Directive keyword (e.g. "profiles", "default engine", "threads").
      * @param opt  Directive argument (raw string).
      * @return SemanticOutput containing status and error/hint if any.
      */
-    SemanticOutput Collect_Using     (const std::string& what, const std::string&  opt); 
+    Arcana_Result Collect_Using     (const std::string& what, const std::string&  opt); 
 
     /**
      * @brief Collect a mapping statement.
@@ -1009,7 +1157,7 @@ public:
      * @param item_2 Right item (destination).
      * @return SemanticOutput containing status and error/hint if any.
      */
-    SemanticOutput Collect_Mapping   (const std::string& item_1, const std::string& item_2);
+    Arcana_Result Collect_Mapping   (const std::string& item_1, const std::string& item_2);
 
     /**
      * @brief Collect an assert statement.
@@ -1021,7 +1169,7 @@ public:
      * @param reason Reason string.
      * @return SemanticOutput containing status and error/hint if any.
      */
-    SemanticOutput Collect_Assert    (std::size_t line, const std::string& stmt, const std::string& lvalue, 
+    Arcana_Result Collect_Assert    (std::size_t line, const std::string& stmt, const std::string& lvalue, 
                                       const std::string& op, const std::string& rvalue, const std::string& reason, const bool actions);
 
     /**
@@ -1045,6 +1193,7 @@ private:
     Attr::List   _attr_pending; //!< Attributes pending attachment to next entity (variable/task)
     
     Enviroment   _env;          //!< Owned environment
+    Context      _context;
 };
 
 

@@ -826,7 +826,7 @@ AlignOnOS(TABLE& table)
         const std::string base   = key.substr(0, pos);
         const std::string os_key = key.substr(pos + 2);
 
-        if (os_key != Core::symbol(Core::SymbolType::OS))
+        if (os_key != Core::first_symbol(Core::SymbolType::OS))
         {
             table.erase(it);
             continue;

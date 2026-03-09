@@ -12,6 +12,7 @@
 #include <optional>
 #include <string_view>
 #include <unordered_map>
+#include <filesystem>
 
 
 #include "Defines.h"
@@ -140,7 +141,7 @@ struct Arguments
     bool flush_cache;
     bool version;
     bool help;
-    bool silent;
+    bool verbose;
     bool pubtasks;
     bool profiles;
 
@@ -156,69 +157,10 @@ struct Arguments
         flush_cache(false),
         version(false),
         help(false),
-        silent(false),
+        verbose(false),
         pubtasks(false),
         profiles(false)
     {}
-};
-
-
-/**
- * @brief Error functor used during parsing stages.
- *
- * This object formats parser errors using lexer context and grammar matches.
- */
-struct ParserError
-{
-    Scan::Lexer& lexer;
-    
-    /**
-     * @brief Formats a parser error.
-     *
-     * @param ctx Error context label.
-     * @param match Grammar match information.
-     * @return Arcana_Result indicating success/failure of the reporting step.
-     */
-    Arcana_Result operator () (const std::string& ctx, const Grammar::Match& match) const;
-};
-
-
-/**
- * @brief Error functor used during semantic analysis stages.
- *
- * Produces diagnostics using lexer context and semantic output information.
- */
-struct SemanticError
-{
-    Scan::Lexer& lexer;
-    
-    /**
-     * @brief Formats a semantic error.
-     *
-     * @param ctx Error context label.
-     * @param SemanticOutput Semantic analysis output.
-     * @param match Grammar match information.
-     * @return Arcana_Result indicating success/failure of the reporting step.
-     */
-    Arcana_Result operator () (const std::string& ctx, const Support::SemanticOutput&, const Grammar::Match&) const;
-};
-
-
-/**
- * @brief Error functor used during post-processing stages.
- */
-struct PostProcError
-{
-    Scan::Lexer& lexer;
-    
-    /**
-     * @brief Formats a post-processing error.
-     *
-     * @param ctx Error context label.
-     * @param err Error description.
-     * @return Arcana_Result indicating success/failure of the reporting step.
-     */
-    Arcana_Result operator () (const std::string& ctx, const std::string& err) const;
 };
 
 
@@ -279,6 +221,8 @@ BEGIN_MODULE(Support)
 
 
 
+namespace fs = std::filesystem;
+
 
 
 //    ███████╗████████╗██████╗ ██╗   ██╗ ██████╗████████╗███████╗
@@ -322,49 +266,6 @@ struct StringViewEq
 };
 
 
-/**
- * @brief Semantic stage output container.
- *
- * Holds a Semantic_Result plus an error string and an optional hint.
- */
-struct SemanticOutput
-{
-    Semantic_Result  result;
-    std::string      err;
-    std::string      hint;
-
-    SemanticOutput() 
-        :
-        result(Semantic_Result::AST_RESULT__OK),
-        err(""),
-        hint("")
-    {}
-
-    SemanticOutput(const Semantic_Result result, const std::string& err) 
-        :
-        result(result),
-        err(err),
-        hint("")
-    {}
-
-    SemanticOutput(const Semantic_Result result, const std::string& err, const std::string& hint) 
-        :
-        result(result),
-        err(err),
-        hint(hint)
-    {}
-
-    SemanticOutput(const Semantic_Result result, const std::string& err, const std::optional<std::string>& opt_hint) 
-        :
-        result(result),
-        err(err)
-    {
-        if (opt_hint)
-        {
-            hint = opt_hint.value();
-        }
-    }
-};
 
 
 
@@ -391,6 +292,17 @@ struct SplitResult
 //    ██║     ╚██████╔╝██████╔╝███████╗██║╚██████╗    ██║     ╚██████╔╝██║ ╚████║╚██████╗███████║
 //    ╚═╝      ╚═════╝ ╚═════╝ ╚══════╝╚═╝ ╚═════╝    ╚═╝      ╚═════╝ ╚═╝  ╚═══╝ ╚═════╝╚══════╝
 //                                                                                                                                                                                                        
+
+#define NO_CTX                                      std::string{}
+#define Raise_Error(ctx, msg)                       ([&] () -> Arcana_Result { if (!ctx.empty()) ERR(ctx); MSG(msg);                                                                              return Arcana_Result::ARCANA_RESULT__NOK; }())
+#define Raise_Error_With_Hint(ctx, msg, hint)       ([&] () -> Arcana_Result { if (!ctx.empty()) ERR(ctx); MSG(msg); if (auto h = hint; !h.empty()) MSG("Did you mean " << TOKEN_CYAN(h) << "?"); return Arcana_Result::ARCANA_RESULT__NOK; }())
+#define Raise_Expansion_Error(msg)                  ([&] () -> Arcana_Result { error.clear(); error << msg;                                                                                       return Arcana_Result::ARCANA_RESULT__NOK; }())
+#define Raise_Expansion_Error_With_Hint(msg, hint)  ([&] () -> Arcana_Result { error.clear(); error << msg << std::endl << "Did you mean " << TOKEN_CYAN(hint) << "?";                            return Arcana_Result::ARCANA_RESULT__NOK; }())
+ 
+
+
+Arcana_Result Parser_Error(const std::string& ctx, const Grammar::Match& match, Scan::Lexer& lexer);
+
 
 
 /**
@@ -422,7 +334,7 @@ Arcana_Result HandleArgsPreParse(const Arguments &args);
  * @param args Argument data structure.
  * @return ARCANA_RESULT__OK on success, otherwise a failure code.
  */
-Arcana_Result HandleArgsPostParse(const Arguments &args, Semantic::Enviroment& env, const Jobs::List& list);
+Arcana_Result HandleArgsPostParse(const Arguments &args, Semantic::Enviroment& env, Jobs::List& list);
 
 
 
@@ -468,6 +380,10 @@ inline char toLowerAscii(char c) noexcept;
  */
 std::vector<std::string> split(const std::string& s, char sep = ' ') noexcept;
 
+
+std::string join(const std::vector<std::string>& vec, std::string sep = ", ") noexcept;
+
+void sanificate(std::string& source, char target) noexcept;
 
 
 /**
@@ -539,6 +455,10 @@ std::string RuleRepr(const Grammar::Rule type);
 
 
 
+
+std::size_t levenshtein_distance(const std::string_view& a,
+                                 const std::string_view& b) noexcept;
+
 /**
  * @brief Finds the closest string to a target within a maximum edit distance.
  *
@@ -549,12 +469,44 @@ std::string RuleRepr(const Grammar::Rule type);
  * @param max_distance Maximum allowed distance.
  * @return Closest match if found within threshold.
  */
-std::optional<std::string> FindClosest(const std::vector<std::string> & list,
-                                const std::string & target,
-                                std::size_t max_distance = std::numeric_limits<std::size_t>::max()) noexcept;
+template<typename Range>
+std::string FindClosest(const Range& list,
+                        const std::string& target,
+                        std::size_t max_distance = std::numeric_limits<std::size_t>::max()) noexcept
+{
+    std::string_view best{};
+    std::size_t best_dist = max_distance;
+
+    for (std::string_view s : list)
+    {
+        if (auto pos = s.find("@@"); pos != std::string_view::npos)
+        {
+            s = s.substr(0, pos);
+        }
+
+        if (s == target)
+        {
+            continue;
+        }
+
+        const std::size_t d = Support::levenshtein_distance(s, target);
+
+        if (d < best_dist)
+        {
+            best_dist = d;
+            best = s;
+        }
+    }
+
+    return std::string(best);
+}
 
 
 
+std::vector<std::string> GetPathEntries() noexcept;
+
+
+bool Is_In_Path(const std::string& what) noexcept;
 
 
 /**

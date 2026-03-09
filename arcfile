@@ -1,75 +1,125 @@
 using profiles Debug Release;
-using default interpreter /bin/bash;
+using engine file .sh bash;
 using threads 12;
 
-@profile Debug;   FLAGS = -std=c++17 -g3 -O0 -Wall -Wextra -pedantic -DDEBUG
-@profile Release; FLAGS = -std=c++17 -Ofast -Wall -Wextra -DRELEASE
+@profile Debug;   FLAGS   = -std=c++17 -g3 -O0 -Wall -Wextra -pedantic -DDEBUG
+@profile Release; FLAGS   = -std=c++20 -DNDEBUG -Ofast -march=native -mtune=native -flto=auto -fuse-linker-plugin -fno-semantic-interposition -fno-plt -fstrict-aliasing -fomit-frame-pointer -fdata-sections -ffunction-sections
+@profile Debug;   LDFLAGS = ;
+@profile Release; LDFLAGS = -fuse-ld=gold -Wl,-O3 -Wl,--as-needed -Wl,--gc-sections -Wl,--icf=all -Wl,--strip-all
 
-BUILDDIR  = arcbuild
 SRCDIR    = src
+BUILDDIR  = arcbuild
+
 TOOL      = arcana
-TARGET    = {arc:BUILDDIR}/{arc:TOOL}
+TARGET    = arc::BUILDDIR/arc::TOOL
 
 @glob
-SOURCES   = {arc:SRCDIR}/**/*.cpp
-OBJECTS   = {arc:BUILDDIR}/**/*.o
-INCLUDES  = -Iinclude/common
+SOURCES   = arc::SRCDIR/**/*.cpp
+OBJECTS   = arc::BUILDDIR/**/*.o
+
+INCLUDES  = -Iinclude/common 
 INCLUDES += -Iinclude/core
 INCLUDES += -Iinclude/parser 
 INCLUDES += -Iinclude/parser/util 
 INCLUDES += -Iinclude/core/util
-BINS      = /bin
+
+RM        = rm
+COMPILER  = g++
+ECHO      = echo
+PYTHON    = python3
 
 map SOURCES -> OBJECTS;
 
-@ifos linux; RM       = rm
-@ifos linux; COMPILER = g++
-@ifos linux; PYTHON   = {arc:BINS}/python3
-
-assert "{arc:__os__}"      eq "linux"           -> "This project can only be build under linux, {arc:__os__} not admitted";
-assert "{arc:COMPILER}"    in "{fs:{arc:BINS}}" -> "{arc:COMPILER} is required for this project";
-assert "python3"           in "{fs:{arc:BINS}}" -> "python3 is required for this project";
+assert "arc::__os__"   eq "linux"         -> Error Death;
+assert "arc::COMPILER" in "arc::__path__" -> "arc::COMPILER is required for this project";
+assert "arc::PYTHON"   in "arc::__path__" -> "arc::PYTHON is required for this project";
+assert "arc::ECHO"     in "arc::__path__" -> "arc::ECHO is required for this project";
 
 ###########################
 # PRIVATE TASKS
 ###########################
 
-@cache track {arc:list:SOURCES}  
+@engine raw arc::ECHO
+task Error()
+{
+This project can only be build under linux, arc::__os__ not admitted
+}
+
+
+@death
+@engine raw arc::ECHO
+task Death()
+{
+Bye!
+}
+
+
+@cache track arc::SOURCES.list()  
 task MakeFolders() 
 {
-    cd {arc:SRCDIR}
-    find . -type d -exec mkdir -p "../{arc:BUILDDIR}"/{} \;
+    cd arc::SRCDIR
+    find . -type d -exec mkdir -p "../arc::BUILDDIR"/{} \;
 }
 
 @pub
-@interpreter {arc:PYTHON}
+@engine file .py arc::PYTHON
 task Message() 
 {
-print('Executing {arc:__main__} for {arc:TOOL} in {arc:__profile__} mode!')
-print('Builtin Symbols:')
-print('main       : {arc:__main__}')
-print('root       : {arc:__root__}')
-print('version    : {arc:__version__}')
-print('profile    : {arc:__profile__}')
-print('threads    : {arc:__threads__}')
-print('max_threads: {arc:__max_threads__}')
-print('OS         : {arc:__os__}')
-print('arch       : {arc:__arch__}')
+print('+-----------------------------------------------------------------------+')
+print('Executing arc::__main__ for arc::TOOL in arc::__profile__ mode!')
+print('+-----------------------------------------------------------------------+')
+print('SYMBOLS')
+print('main       : arc::__main__')
+print('root       : arc::__root__')
+print('version    : arc::__version__')
+print('codename   : arc::__release__')
+print('profile    : arc::__profile__')
+print('threads    : arc::__threads__')
+print('max_threads: arc::__max_threads__')
+print('OS         : arc::__os__')
+print('arch       : arc::__arch__')
+print('path       : arc::__path__')
+print('+-----------------------------------------------------------------------+')
+print('VARIABLES')
+print('BUILDDIR   : arc::BUILDDIR')
+print('SRCDIR     : arc::SRCDIR')
+print('TOOL       : arc::TOOL')
+print('TARGET     : arc::TARGET')
+print('SOURCES    : arc::SOURCES.list()')
+print('OBJECTS    : arc::OBJECTS.list()')
+print('INCLUDES   : arc::INCLUDES.list()')
+print('ECHO       : arc::ECHO')
+print('RM         : arc::RM')
+print('PYTHON     : arc::PYTHON')
+print('COMPILER   : arc::COMPILER')
+print('FLAGS      : arc::FLAGS')
+print('LDFLAGS    : arc::LDFLAGS')
+print('+-----------------------------------------------------------------------+')
+print('STATISTICS')
+print('# of SOURCES      : arc::SOURCES.size()')
+print('# of OBJECTS      : arc::OBJECTS.size()')
+print('# of INCLDIR      : arc::INCLUDES.size()')
+print('LDFLAGS emptiness : arc::LDFLAGS.empty()')
+print('+-----------------------------------------------------------------------+')
+print()
 }
 
+
 @echo
-@cache track {arc:list:SOURCES} 
+@cache    track arc::SOURCES.list()  
 @requires MakeFolders
-@multithread
+@threading
 task Compile() 
 {
-{arc:COMPILER} {arc:FLAGS} {arc:INCLUDES} -c {arc:list:SOURCES} -o {arc:list:OBJECTS}
+arc::COMPILER arc::FLAGS arc::INCLUDES.inline() -c arc::SOURCES.list() -o arc::OBJECTS.list()
 }
-    
-@cache store {arc:list:SOURCES}  
+
+
+@echo
+@cache store arc::SOURCES.list()  
 task Link()
-{        
-{arc:COMPILER} {arc:FLAGS} {arc:inline:OBJECTS} -o {arc:TARGET}
+{
+arc::COMPILER arc::LDFLAGS arc::FLAGS arc::OBJECTS.inline() -o arc::TARGET
 }
 
 
@@ -79,31 +129,37 @@ task Link()
 
 
 @pub
-@cache untrack {arc:list:SOURCES} 
-@then MakeFolders
+@then  MakeFolders
+@cache untrack arc::SOURCES.list() 
 task Clean() 
-{ 
-    rm -rf {arc:BUILDDIR}
+{
+    rm -rf arc::BUILDDIR
 }
+
 
 @pub
 @main
-@requires Compile Link
+@requires Message Compile Link
 task Build() {}
+
 
 @pub
 @requires Message Clean Build
 task Rebuild() {}
 
+
 @pub
 @requires Clean Build
 task Install()
 {
-    sudo cp {arc:TARGET} /usr/bin/  
+    sudo cp arc::TARGET /usr/bin/  
 }
+
 
 @pub
 task Uninstall()
 {
-    sudo rm /usr/bin/{arc:TOOL}   
+    sudo rm /usr/bin/arc::TOOL   
 }
+
+

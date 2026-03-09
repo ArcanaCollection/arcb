@@ -269,7 +269,7 @@ enum class IMPORT : uint32_t
 /**
  * @brief Positional capture indices for Rule::USING.
  *
- * Using statements configure environment aspects (profiles, interpreter, threads, etc.).
+ * Using statements configure environment aspects (profiles, engine, threads, etc.).
  * OPT meaning is subcommand-dependent.
  */
 enum class USING : uint32_t 
@@ -277,7 +277,7 @@ enum class USING : uint32_t
     /// Reserved keyword token/span (e.g. "using")
     RESERVED           = 0,
 
-    /// Subject token/span (what is being configured: profiles/default/interpreter/threads/...)
+    /// Subject token/span (what is being configured: profiles/default/engine/threads/...)
     WHAT                  ,
 
     /// Optional parameter token/span (e.g. list of items, numeric value, etc.)

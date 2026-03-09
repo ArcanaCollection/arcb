@@ -18,7 +18,7 @@ BEGIN_MODULE(Generator)
  * This template represents the initial Arcana build file generated
  * when creating a new project. It defines:
  * - default profiles
- * - interpreter and threading configuration
+ * - engine and threading configuration
  * - core variables and mappings
  * - example assertions
  * - skeleton public and private tasks
@@ -29,7 +29,7 @@ static const char* ARCANA_TEMPLATE = R"TEMPLATE(
 #!/usr/bin/arcana
 
 using profiles Debug Release;
-using default interpreter /bin/bash;
+using default engine /bin/bash;
 using threads 1;
 
 @profile Debug;   FLAGS = -Wall -g3 -O0

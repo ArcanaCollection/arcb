@@ -135,8 +135,6 @@ static void PruneUnchangedInstructions(Jobs::Job& job, const Semantic::Instructi
         for (auto& file : task.cache.data)
         {
             process_file(file);
-
-            Arcana::Cache::Manager::Instance().Store(file);
         }
     }
     
@@ -184,14 +182,17 @@ FromInstruction(const Semantic::InstructionTask& task, bool prunable = true) noe
     auto make_single_instruction = [] (const Semantic::Task::Instrs& instrs) noexcept -> std::string
     {
         std::stringstream ss;
+        const auto size = instrs.size();
 
-        for (const auto& instr : instrs)
+        for (uint32_t i = 0; i < size; ++i)
         {
-            ss << instr << std::endl;
+            ss << instrs[i];
+            
+            if ((i + 1) != size) ss << std::endl;
         } 
 
         return ss.str();
-    };
+    }; 
 
     // IF NOTHING TO RUN, RETURN EMPTY JOB
     if (!task.task_instrs.size())
@@ -200,8 +201,9 @@ FromInstruction(const Semantic::InstructionTask& task, bool prunable = true) noe
     }
 
     // INIT JOB HEADER
-    new_job.name         = task.task_name;
-    new_job.interpreter  = task.interpreter;
+    new_job.name         = task.task_name; 
+    new_job.engine       = task.engine;
+    new_job.cache        = task.cache;
     new_job.instructions = {};
 
     if (task.expanded)
@@ -226,9 +228,18 @@ FromInstruction(const Semantic::InstructionTask& task, bool prunable = true) noe
         return std::nullopt;
     }
 
+    if (new_job.engine.type == Semantic::Executor::Type::RAW)
+    {
+        for (auto& instr : new_job.instructions)
+        {
+            Support::sanificate(instr, '"');
+        }
+    }
+
     // APPLY EXECUTION ATTRIBUTES
     new_job.parallelizable = task.hasAttribute(Semantic::Attr::Type::MULTITHREAD);
     new_job.echo           = task.hasAttribute(Semantic::Attr::Type::ECHO);
+    new_job.death          = task.hasAttribute(Semantic::Attr::Type::DEATH);
 
     return new_job;
 }
@@ -467,7 +478,7 @@ Arcana_Result List::FromEnv(Semantic::Enviroment& environment, List& out, std::v
         {
             ERR(err);
             return Arcana_Result::ARCANA_RESULT__NOK;
-        }
+        }  
 
         // INSERT ORDERED JOBS
         for (const Job& j : ordered)

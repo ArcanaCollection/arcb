@@ -73,10 +73,13 @@ struct Job
 {
     std::string            name;            ///< Job name.
     Semantic::Task::Instrs instructions;    ///< Instructions to execute.
-    Semantic::Interpreter  interpreter;     ///< Interpreter used to run the job.
+    Semantic::Executor     engine;          ///< Executor used to run the job.
     bool                   parallelizable;  ///< Whether the job can run in parallel.
-    bool                   expanded;
+    bool                   expanded;        ///< Parallellizable job
     bool                   echo;            ///< Whether command echoing is enabled.
+    bool                   death;
+    Semantic::InstructionTask::Cache cache;
+
 };
 
 
@@ -123,8 +126,8 @@ public:
     /**
      * @brief Returns all jobs in execution order.
      */
-    const std::vector<Job>&
-    All() const noexcept
+    std::vector<Job>&
+    All() noexcept
     {
         return data;
     }

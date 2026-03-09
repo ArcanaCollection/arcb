@@ -115,7 +115,7 @@
 /**
  * @brief Current Arcana version string.
  */
-#define __ARCANA__VERSION__                     "0.6.0"
+#define __ARCANA__VERSION__                     "0.6.1"
 
 
 /**
@@ -134,6 +134,7 @@
 //    ╚═╝  ╚═╝╚═╝  ╚═══╝╚══════╝╚═╝    ╚══════╝╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝     ╚══════╝╚══════╝
 //                                                                                                                                                                                       
 
+#define ANSI_FG(r,g,b)                          "\033[38;2;" #r ";" #g ";" #b "m"                            
 #define ANSI_RESET                              "\x1b[0m"
 
 // ==== Foreground (text) ====
@@ -180,6 +181,7 @@
 // ==== Styles ====
 #define ANSI_BOLD                               "\x1b[1m"
 #define ANSI_DIM                                "\x1b[2m"
+#define ANSI_ITALIC                             "\x1b[3m"
 #define ANSI_UNDERLINE                          "\x1b[4m"
 #define ANSI_BLINK                              "\x1b[5m"
 #define ANSI_REVERSE                            "\x1b[7m"
@@ -232,6 +234,9 @@
  * @param token Token or expression to be colorized.
  */
 #define TOKEN_YELLOW(token)                      ANSI_BYELLOW << token << ANSI_RESET
+
+#define TOKEN_ORANGE(token)                      ANSI_FG(217, 150, 38) << token << ANSI_RESET
+#define TOKEN_LYELLOW(token)                     ANSI_FG(252, 240, 190) << token << ANSI_RESET
 
 
 

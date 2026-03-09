@@ -22,6 +22,8 @@ namespace fs = std::filesystem;
 
 using AttributeMap = Arcana::Support::AbstractKeywordMap<Attr::Type>;
 using UsingMap     = Arcana::Support::AbstractKeywordMap<Using::Rule>;
+using CacheMap     = Arcana::Support::AbstractKeywordMap<InstructionTask::Cache::Type>;
+using EngineMap    = Arcana::Support::AbstractKeywordMap<Executor::Type>;
 
 
 
@@ -41,14 +43,15 @@ static const AttributeMap Known_Attributes =
     { "requires"    , Attr::Type::REQUIRES    },
     { "then"        , Attr::Type::THEN        },
     { "map"         , Attr::Type::MAP         },
-    { "multithread" , Attr::Type::MULTITHREAD },
+    { "threading"   , Attr::Type::MULTITHREAD },
     { "main"        , Attr::Type::MAIN        },
-    { "interpreter" , Attr::Type::INTERPRETER },
+    { "engine"      , Attr::Type::ENGINE      },
     { "cache"       , Attr::Type::CACHE       },
     { "echo"        , Attr::Type::ECHO        },
     { "exclude"     , Attr::Type::EXCLUDE     },
     { "glob"        , Attr::Type::GLOB        },
     { "ifos"        , Attr::Type::IFOS        },
+    { "death"       , Attr::Type::DEATH       },
 };
 
 
@@ -58,9 +61,9 @@ static const AttributeMap Known_Attributes =
  */
 static const UsingMap Known_Usings =
 {
-    { "profiles", { {               }, Using::Type::PROFILES    } },
-    { "default" , { { "interpreter" }, Using::Type::INTERPRETER } },
-    { "threads" , { {               }, Using::Type::THREADS     } },
+    { "profiles", { {               }, Using::Type::PROFILES } },
+    { "engine"  , { { "file", "raw" }, Using::Type::ENGINE   } },
+    { "threads" , { {               }, Using::Type::THREADS  } },
 };
 
 
@@ -76,14 +79,15 @@ static const std::vector<std::string> _attributes =
     "requires",
     "then",
     "map",
-    "multithread",
+    "threading",
     "main",
-    "interpreter",
+    "engine",
     "cache",
     "echo",
     "exclude",
     "glob",
     "ifos",
+    "death",
 };
 
 
@@ -94,7 +98,7 @@ static const std::vector<std::string> _attributes =
 static const std::vector<std::string> _usings =
 {
     "profiles",
-    "default",
+    "engine",
     "threads",
 };
 
@@ -103,25 +107,29 @@ static const std::vector<std::string> _usings =
 /**
  * @brief Canonical cache instructions
  */
-static const std::vector<std::string> _cache =
+static const CacheMap _cache =
 {
-    "track",
-    "store",
-    "untrack",
+    { "track"   , InstructionTask::Cache::Type::TRACK   },
+    { "store"   , InstructionTask::Cache::Type::STORE   },
+    { "untrack" , InstructionTask::Cache::Type::UNTRACK }, 
 };
+
+
+/**
+ * @brief 
+ */
+static const EngineMap _engines =
+{
+    { "raw"    , Executor::Type::RAW    },
+    { "file"   , Executor::Type::FILE   },
+};
+
 
 
 
 // ------------------------------
 // OUTPUT MACROS
 // ------------------------------
-
-#define SEM_OK()                 SemanticOutput{}
-#define SEM_NOK(err)             { Semantic_Result::AST_RESULT__NOK, err       }
-#define SEM_NOK_HINT(err, hint)  { Semantic_Result::AST_RESULT__NOK, err, hint }
-
-
-
 
 
 
@@ -152,10 +160,11 @@ Engine::Engine()
     _attr_rules[_I(Attr::Type::GLOB        )] = { Attr::Qualificator::NO_PROPERY       , Attr::Count::ZERO     , {                     Attr::Target::VARIABLE } };
     _attr_rules[_I(Attr::Type::MULTITHREAD )] = { Attr::Qualificator::NO_PROPERY       , Attr::Count::ZERO     , { Attr::Target::TASK,                        } };
     _attr_rules[_I(Attr::Type::MAIN        )] = { Attr::Qualificator::NO_PROPERY       , Attr::Count::ZERO     , { Attr::Target::TASK,                        } };
-    _attr_rules[_I(Attr::Type::INTERPRETER )] = { Attr::Qualificator::REQUIRED_PROPERTY, Attr::Count::ONE      , { Attr::Target::TASK,                        } };
+    _attr_rules[_I(Attr::Type::ENGINE      )] = { Attr::Qualificator::REQUIRED_PROPERTY, Attr::Count::UNLIMITED, { Attr::Target::TASK,                        } };
     _attr_rules[_I(Attr::Type::CACHE       )] = { Attr::Qualificator::REQUIRED_PROPERTY, Attr::Count::UNLIMITED, { Attr::Target::TASK,                        } };
     _attr_rules[_I(Attr::Type::ECHO        )] = { Attr::Qualificator::NO_PROPERY       , Attr::Count::ZERO     , { Attr::Target::TASK,                        } };
     _attr_rules[_I(Attr::Type::IFOS        )] = { Attr::Qualificator::REQUIRED_PROPERTY, Attr::Count::ONE      , {                     Attr::Target::VARIABLE } };
+    _attr_rules[_I(Attr::Type::DEATH       )] = { Attr::Qualificator::NO_PROPERY       , Attr::Count::ZERO     , { Attr::Target::TASK,                        } };
 }
 
 
@@ -166,7 +175,7 @@ Engine::Engine()
  * @param prop Raw properties string (tokenized via split()).
  * @return SemanticOutput with status and optional hint.
  */
-SemanticOutput Engine::Collect_Attribute(const std::string& name, const std::string& prop)
+Arcana_Result Engine::Collect_Attribute(const std::string& name, const std::string& prop)
 {
     std::stringstream ss;
 
@@ -182,8 +191,11 @@ SemanticOutput Engine::Collect_Attribute(const std::string& name, const std::str
     // HANDLE UNKNOWN ATTRIBUTE
     if (attr == Attr::Type::ATTRIBUTE__UNKNOWN)
     {
-        ss << "Attribute " << TOKEN_MAGENTA(name) << " not recognized";
-        return SEM_NOK_HINT(ss.str(), Support::FindClosest(_attributes, name));
+        return Raise_Error_With_Hint(
+            _context.str(),
+            "Attribute " << TOKEN_MAGENTA(name) << " not recognized",
+            Support::FindClosest(_attributes, name)
+        );
     }
 
     // VALIDATE PROPERTIES AGAINST RULES
@@ -195,91 +207,101 @@ SemanticOutput Engine::Collect_Attribute(const std::string& name, const std::str
         // ENFORCE REQUIRED PROPERTIES
         if (props_count == 0)
         {
-            ss << "Attribute " << TOKEN_MAGENTA(name) << " requires at least one option";
-            return SEM_NOK(ss.str());
+            return Raise_Error(
+                _context.str(),
+                "Attribute " << TOKEN_MAGENTA(name) << " requires at least one option"
+            );
         }
         else if (props_count != 1 && rule.count == Attr::Count::ONE)
         {
-            ss << "Attribute " << TOKEN_MAGENTA(name) << " requires one option, not " << props_count;
-            return SEM_NOK(ss.str());
+            return Raise_Error(
+                _context.str(),
+                "Attribute " << TOKEN_MAGENTA(name) << " requires one option, not " << props_count
+            );
         }
-
     }
     else
     {
         // ENFORCE NO PROPERTIES
         if (props_count > 0)
         {
-            ss << "Attribute " << TOKEN_MAGENTA(name) << " requires no option";
-            return SEM_NOK(ss.str());
+            return Raise_Error(
+                _context.str(),
+                "Attribute " << TOKEN_MAGENTA(name) << " requires no option"
+            );
         }
     }
 
-    // ATTRIBUTE-SPECIFIC VALIDATION
-    if (attr == Attr::Type::PROFILE)
+    // ATTRIBUTE QUALIFICATION
+    switch (attr)
     {
-        // VALIDATE PROFILE EXISTS
-        const auto& profiles = _env.profile.profiles;
+        case Attr::Type::PROFILE:
+        {
+            // VALIDATE PROFILE EXISTS
+            const auto& profiles = _env.profile.profiles;
 
-        if (std::find(profiles.begin(), profiles.end(), property[0]) == profiles.end())
-        {
-            ss << "Profile " << TOKEN_MAGENTA(property[0]) << " must be declared via " << ANSI_BMAGENTA << "using profile <profilenames>" << ANSI_RESET;
-            return SEM_NOK_HINT(ss.str(), Support::FindClosest(profiles, property[0]));
-        }
-    }
-    else if (attr == Attr::Type::MAP || attr == Attr::Type::EXCLUDE)
-    {
-        // VALIDATE REFERENCED VARIABLE EXISTS
-        auto keys = Table::Keys(_env.vtable);
+            if (std::find(profiles.begin(), profiles.end(), property[0]) == profiles.end())
+            {
+                return Raise_Error_With_Hint(
+                    _context.str(),
+                    "Profile " << TOKEN_MAGENTA(property[0]) << " must be declared via " << TOKEN_MAGENTA("using profile <profilenames>") << " statement",
+                    Support::FindClosest(profiles, property[0])
+                );
+            }
+        } break;
 
-        if (std::find(keys.begin(), keys.end(), property[0]) == keys.end())
+        case Attr::Type::MAP:
+        case Attr::Type::EXCLUDE:
         {
-            ss << "Invalid " << name << " " << TOKEN_MAGENTA(property[0]) << ": undeclared variable";
-            return SEM_NOK_HINT(ss.str(), Support::FindClosest(keys, property[0]));
-        }
-    }
-    else if (attr == Attr::Type::IFOS)
-    {
-        // VALIDATE OS NAME
-        if (!Core::is_os(property[0]))
-        {
-            ss << "Invalid OS " << TOKEN_MAGENTA(property[0]);
-            return SEM_NOK(ss.str());
-        }
-    }
-    else if (attr == Attr::Type::CACHE)
-    {
-        auto keys = Table::Keys(_env.vtable);
+            // VALIDATE REFERENCED VARIABLE EXISTS
+            if (_env.vtable.find(property[0]) == _env.vtable.end())
+            {
+                return Raise_Error_With_Hint(
+                    _context.str(),
+                    "Invalid " << TOKEN_MAGENTA(property[0]) << ": undeclared variable",
+                    Support::FindClosest(Table::Keys(_env.vtable), property[0])
+                );
+            }
+        } break;
 
-        if (property.size() == 1)
+        case Attr::Type::IFOS:
         {
-            ss << "Missing arguments for attribute " << TOKEN_MAGENTA(name);
-            return SEM_NOK(ss.str());
-        }
+            // VALIDATE OS NAME
+            if (!Core::is_os(property[0]))
+            {
+                return Raise_Error(
+                    _context.str(),
+                    "Invalid OS " << TOKEN_MAGENTA(property[0])
+                );
+            }
+        } break;
 
-        if (std::find(_cache.begin(), _cache.end(), property[0]) == _cache.end())
+        case Attr::Type::CACHE:
+        case Attr::Type::ENGINE:
         {
-            ss << "Invalid keyword " << TOKEN_MAGENTA(property[0]) << " for attribute @" << TOKEN_CYAN(name);
-            return SEM_NOK_HINT(ss.str(), Support::FindClosest(_cache, property[0]));
-        }
+            if (property.size() < 2)
+            {
+                return Raise_Error(
+                    _context.str(),
+                    "Missing arguments for attribute " << TOKEN_MAGENTA(name)
+                );
+            }
+        } break;
 
-        /*
-        if (std::find(keys.begin(), keys.end(), property[1]) == keys.end())
-        {
-            ss << "Invalid " << property[0] << " property for " << TOKEN_MAGENTA(property[1]) << ": undeclared variable";
-            return SEM_NOK_HINT(ss.str(), Support::FindClosest(keys, property[1]));
-        }
-        */
+        default: break;
     }
 
     // ENQUEUE ATTRIBUTE FOR NEXT ENTITY
-    _attr_pending.push_back({
+    Attr::Attribute new_attr = {
         name,
         attr,
         property
-    });
+    };
 
-    return SEM_OK();
+    new_attr.context = _context;
+    _attr_pending.push_back(new_attr);
+
+    return Arcana_Result::ARCANA_RESULT__OK;
 }
 
 
@@ -290,12 +312,15 @@ SemanticOutput Engine::Collect_Attribute(const std::string& name, const std::str
  * @param val  Raw value.
  * @return SemanticOutput with status.
  */
-SemanticOutput Engine::Collect_Assignment(const std::string& name, const std::string& val, bool join)
+Arcana_Result Engine::Collect_Assignment(const std::string& name, const std::string& val, bool join)
 {
     std::stringstream  ss;
-    InstructionAssign  assign { name, val };
+    InstructionAssign  assign { name, nullptr };
+
+    if (!val.empty()) assign.var_value.push_back(val);
 
     // ATTACH PENDING ATTRIBUTES AND CLEAR PENDING QUEUE
+    assign.context    = _context;
     assign.attributes = _attr_pending;
     _attr_pending.clear();
 
@@ -306,8 +331,10 @@ SemanticOutput Engine::Collect_Assignment(const std::string& name, const std::st
 
         if (std::find(rule.targets.begin(), rule.targets.end(), Attr::Target::VARIABLE) == rule.targets.end())
         {
-            ss << "Attribute " << TOKEN_MAGENTA(attr.name) << " is not valid for variable assignment";
-            return SEM_NOK(ss.str());
+            return Raise_Error(
+                _context.str(),
+                "Attribute " << TOKEN_MAGENTA(attr.name) << " is not valid for variables"
+            );
         }
     }
 
@@ -327,13 +354,6 @@ SemanticOutput Engine::Collect_Assignment(const std::string& name, const std::st
     {
         if (join) 
         {
-            const auto& keys = Table::Keys(_env.vtable);
-
-            if (std::find(keys.begin(), keys.end(), name) == keys.end())
-            {
-                #warning handle error
-            } 
-
             auto& var = _env.vtable[name];
             var.var_value.push_back(val);
         }
@@ -343,7 +363,7 @@ SemanticOutput Engine::Collect_Assignment(const std::string& name, const std::st
         }
     }
 
-    return SEM_OK();
+    return Arcana_Result::ARCANA_RESULT__OK;
 }
 
 
@@ -355,15 +375,16 @@ SemanticOutput Engine::Collect_Assignment(const std::string& name, const std::st
  * @param instrs Instruction lines.
  * @return SemanticOutput with status.
  */
-SemanticOutput Engine::Collect_Task(const std::string& name, const Task::Instrs& instrs)
+Arcana_Result Engine::Collect_Task(const std::string& name, const Task::Instrs& instrs)
 {
     std::stringstream ss;
 
     // BUILD TASK INSTRUCTION
     InstructionTask task { name, instrs };
     FTable&         ftable = _env.ftable;
-
+    
     // ATTACH PENDING ATTRIBUTES AND CLEAR PENDING QUEUE
+    task.context    = _context;
     task.attributes = _attr_pending;
     _attr_pending.clear();
 
@@ -374,8 +395,10 @@ SemanticOutput Engine::Collect_Task(const std::string& name, const Task::Instrs&
 
         if (std::find(rule.targets.begin(), rule.targets.end(), Attr::Target::TASK) == rule.targets.end())
         {
-            ss << "Attribute " << TOKEN_MAGENTA(attr.name) << " is not valid for tasks";
-            return SEM_NOK(ss.str());
+            return Raise_Error(
+                _context.str(),
+                "Attribute " << TOKEN_MAGENTA(attr.name) << " is not valid for tasks"
+            );
         }
     }
 
@@ -394,10 +417,12 @@ SemanticOutput Engine::Collect_Task(const std::string& name, const Task::Instrs&
             }
             else
             {
-                if (Core::symbol(Core::SymbolType::MAIN) != name)
+                if (Core::first_symbol(Core::SymbolType::MAIN) != name)
                 {
-                    ss << "Cannot tag multiple tasks with attribute " << TOKEN_MAGENTA("main");
-                    return SEM_NOK(ss.str());
+                    return Raise_Error(
+                        _context.str(),
+                        "Cannot tag multiple tasks with attribute " << TOKEN_MAGENTA("main")
+                    );
                 }
             }
         }
@@ -414,94 +439,146 @@ SemanticOutput Engine::Collect_Task(const std::string& name, const Task::Instrs&
             }
             else
             {
-                ss << "Cannot tag multiple tasks with attribute " << TOKEN_MAGENTA("main");
-                return SEM_NOK(ss.str());
+                return Raise_Error(
+                    _context.str(),
+                    "Cannot tag multiple tasks with attribute " << TOKEN_MAGENTA("main")
+                );
             }
         }
     }
 
-    return SEM_OK();
+    return Arcana_Result::ARCANA_RESULT__OK;
 }
 
 
 
 /**
  * @brief Collect a `using` directive and update environment configuration.
- * @param what Directive keyword (e.g. profiles/default/threads).
+ * @param what Directive keyword (e.g. profiles/raw/file/threads).
  * @param opt  Directive option string.
  * @return SemanticOutput with status and optional hint.
  */
-SemanticOutput Engine::Collect_Using(const std::string& what, const std::string& opt)
+Arcana_Result Engine::Collect_Using(const std::string& what, const std::string& opt)
 {
+    auto IsExtension = [&] (const std::string& s) -> bool
+    {
+        static const std::regex re(R"(^\.[A-Za-z0-9]+(\.[A-Za-z0-9]+)*$)");
+        return s.empty() || std::regex_match(s, re);
+    };
+
+
     std::stringstream ss;
     Attr::Properties  options = Arcana::Support::split(opt);
     Using::Rule       rule;
 
+    UsingMap::const_iterator it;
+
     // RESOLVE USING RULE
-    if (auto it = Known_Usings.find(what); it != Known_Usings.end())
+    if (it = Known_Usings.find(what); it != Known_Usings.end())
     {
         rule = it->second;
     }
     else
     {
-        ss << "Unknown " << TOKEN_MAGENTA(what) << " for statement " << TOKEN_MAGENTA("using");
-        return SEM_NOK_HINT(ss.str(), Support::FindClosest(_usings, what));
+        return Raise_Error_With_Hint(
+            _context.str(),
+            "Unknown " << TOKEN_MAGENTA(what),
+            Support::FindClosest(_usings, what)
+        );
     }
 
-    // HANDLE DEFAULT INTERPRETER
-    if (rule.using_type == Using::Type::INTERPRETER)
+    // HANDLE DEFAULT ENGINE
+    if (rule.using_type == Using::Type::ENGINE)
     {
-        // VALIDATE OPTIONS PRESENCE
+        std::size_t index = 0;
+
         if (options.size() == 0)
         {
-            std::stringstream ss1;
-            for (uint32_t iter = 0; iter < rule.valid_attr.size(); iter++)
-            {
-                if (iter > 0)
-                {
-                    ss1 << ", or ";
-                }
-
-                ss1 << TOKEN_MAGENTA(rule.valid_attr[iter]);
-            }
-
-            ss << "Statement " << TOKEN_MAGENTA("using " << what) << " must be followed by " << ss1.str();
-            return SEM_NOK(ss.str());
+            return Raise_Error(
+                _context.str(),
+                "Missing arguments"
+            );
         }
 
-        // VALIDATE ATTRIBUTE NAME
         const auto& attr = std::find(rule.valid_attr.begin(), rule.valid_attr.end(), options[0]);
 
         if (attr == rule.valid_attr.end())
         {
-            ss << "Unknown attribute " << TOKEN_MAGENTA(options[0]) << " for statement " << TOKEN_MAGENTA("using " << what);
-            return SEM_NOK_HINT(ss.str(), Support::FindClosest(rule.valid_attr, options[0]));
+            return Raise_Error_With_Hint(
+                _context.str(),
+                "Unknown attribute " << TOKEN_MAGENTA(options[0]),
+                Support::FindClosest(rule.valid_attr, options[0])
+            );
         }
 
-        // VALIDATE INTERPRETER PATH PRESENT
-        if (options.size() == 1)
+        auto type = _engines.find(options[0])->second;
+
+        _env.default_interpreter.is_default = true;
+
+        switch (type)
         {
-            ss << "Statement " << TOKEN_MAGENTA("using default " << options[0]) << " must be followed by interpeter path";
-            return SEM_NOK(ss.str());
+            case Executor::Type::FILE:
+            {
+                if (options.size() < 3)
+                {
+                    return Raise_Error(
+                        _context.str(),
+                        "Missing arguments"
+                    );
+                }
+
+                _env.default_interpreter.ext     = options[1];
+                _env.default_interpreter.command = options[2]; 
+
+                index = 3;
+            }
+            break;
+
+            case Executor::Type::RAW:
+            {
+                if (options.size() < 2)
+                {
+                    return Raise_Error(
+                        _context.str(),
+                        "Missing arguments"
+                    );
+                }
+
+                _env.default_interpreter.command = options[1]; 
+
+                index = 2;
+            }
+            break;
         }
 
-        // VALIDATE INTERPRETER EXISTS
-        if (!Support::file_exists(options[1]))
+        if (!IsExtension(_env.default_interpreter.ext))
         {
-            ss << "Interpreter " << TOKEN_MAGENTA(options[1]) << " is missing or unknown";
-            return SEM_NOK(ss.str());
+            return Raise_Error(
+                _context.str(),
+                "Extension " << TOKEN_MAGENTA(_env.default_interpreter.ext) << " is missing or wrong"
+            );
         }
 
-        // SET DEFAULT INTERPRETER
-        _env.default_interpreter = options[1];
+        if (!Support::Is_In_Path(_env.default_interpreter.command) && !Support::file_exists(_env.default_interpreter.command))
+        {
+            return Raise_Error(
+                _context.str(),
+                "Binary " << TOKEN_MAGENTA(_env.default_interpreter.command) << " is missing or unknown"
+            );
+        }
+
+        _env.default_interpreter.type = type;
+        _env.default_interpreter.flags.insert(_env.default_interpreter.flags.begin(), options.begin() + index, options.end());
     }
     else if (rule.using_type == Using::Type::PROFILES)
     {
         // VALIDATE PROFILES PRESENT
         if (options.size() == 0)
         {
-            ss << "Statement " << TOKEN_MAGENTA("using profiles") << " must be followed by profiles name";
-            return SEM_NOK(ss.str());
+            return Raise_Error(
+                _context.str(),
+                "This statement must be followed by profiles name"
+            );
         }
 
         // COLLECT UNIQUE PROFILES
@@ -509,8 +586,10 @@ SemanticOutput Engine::Collect_Using(const std::string& what, const std::string&
         {
             if (Core::is_os(options[iter]) || Core::is_arch(options[iter]))
             {
-                ss << "Profile " << TOKEN_MAGENTA(options[iter]) << " cannot be the OS or ARCH name";
-                return SEM_NOK(ss.str());
+                return Raise_Error(
+                    _context.str(),
+                    "Profile " << TOKEN_MAGENTA(options[iter]) << " cannot be the OS or ARCH name"
+                );
             }
             else if (std::find(_env.profile.profiles.begin(), _env.profile.profiles.end(), options[iter]) == _env.profile.profiles.end())
             {
@@ -518,8 +597,10 @@ SemanticOutput Engine::Collect_Using(const std::string& what, const std::string&
             }
             else
             {
-                ss << "Duplicate item in statement " << TOKEN_MAGENTA("using profiles") << ": " << TOKEN_MAGENTA(options[iter]) << ANSI_RESET;
-                return SEM_NOK(ss.str());
+                return Raise_Error(
+                    _context.str(),
+                    "Duplicated item: " << TOKEN_MAGENTA(options[iter])
+                );
             }
         }
     }
@@ -528,8 +609,10 @@ SemanticOutput Engine::Collect_Using(const std::string& what, const std::string&
         // VALIDATE THREADS ARGUMENT
         if (options.size() != 1)
         {
-            ss << "Statement " << TOKEN_MAGENTA("using multithread") << " must be followed maximum threads allowed";
-            return SEM_NOK(ss.str());
+            return Raise_Error(
+                _context.str(),
+                "This statement must be followed maximum threads allowed"
+            );
         }
 
         // PARSE INT VALUE
@@ -541,8 +624,10 @@ SemanticOutput Engine::Collect_Using(const std::string& what, const std::string&
 
         if (ec != std::errc{} || ptr != end || max_threads <= 0)
         {
-            ss << "Invalid value for multithread: " << TOKEN_MAGENTA(options[0]) << ". Expected a positive integer.";
-            return SEM_NOK(ss.str());
+            return Raise_Error(
+                _context.str(),
+                "Invalid value for multithread: " << TOKEN_MAGENTA(options[0]) << ". Expected a positive integer."
+            );
         }
 
         // STORE THREADS CONFIG
@@ -550,7 +635,7 @@ SemanticOutput Engine::Collect_Using(const std::string& what, const std::string&
         Core::update_symbol(Core::SymbolType::THREADS, std::to_string(max_threads));
     }
 
-    return SEM_OK();
+    return Arcana_Result::ARCANA_RESULT__OK;
 }
 
 
@@ -561,36 +646,45 @@ SemanticOutput Engine::Collect_Using(const std::string& what, const std::string&
  * @param item_2 Destination variable name.
  * @return SemanticOutput with status/hint.
  */
-SemanticOutput Engine::Collect_Mapping(const std::string& item_1, const std::string& item_2)
+Arcana_Result Engine::Collect_Mapping(const std::string& item_1, const std::string& item_2)
 {
     std::stringstream ss;
 
     // VALIDATE VARIABLES PRESENCE
     auto&      vtable   = _env.vtable;
-    const auto keys     = Table::Keys(vtable);
     auto       it_item1 = vtable.find(item_1);
     auto       it_item2 = vtable.find(item_2);
 
     if (it_item1 == vtable.end())
     {
-        ss << "Invalid mapping " << TOKEN_MAGENTA(item_1) << " -> " << TOKEN_MAGENTA(item_2) << "! " << item_1 << ": undeclared variable";
-        return SEM_NOK_HINT(ss.str(), Support::FindClosest(keys, item_1));
+        return Raise_Error_With_Hint(
+            _context.str(),
+            "Undeclared variable " << TOKEN_MAGENTA(item_1),
+            Support::FindClosest(Table::Keys(vtable), item_1)
+        );
     }
 
     if (it_item2 == vtable.end())
     {
-        ss << "Invalid mapping " << TOKEN_MAGENTA(item_1) << " -> " << TOKEN_MAGENTA(item_2) << "! " << item_2 << ": undeclared variable";
-        return SEM_NOK_HINT(ss.str(), Support::FindClosest(keys, item_2));
+        return Raise_Error_With_Hint(
+            _context.str(),
+            "Undeclared variable " << TOKEN_MAGENTA(item_2),
+            Support::FindClosest(Table::Keys(vtable), item_2)
+        );
     }
 
     // ATTACH @map ATTRIBUTE TO DESTINATION VARIABLE
-    it_item2->second.attributes.push_back({
+    Attr::Attribute attr = {
         "map",
         Attr::Type::MAP,
         { item_1 }
-    });
+    };
 
-    return SEM_OK();
+    attr.context = _context;
+
+    it_item2->second.attributes.push_back(attr);
+
+    return Arcana_Result::ARCANA_RESULT__OK;
 }
 
 
@@ -605,7 +699,7 @@ SemanticOutput Engine::Collect_Mapping(const std::string& item_1, const std::str
  * @param reason Reason string.
  * @return SemanticOutput with status.
  */
-SemanticOutput Engine::Collect_Assert(std::size_t line,
+Arcana_Result Engine::Collect_Assert(std::size_t line,
                                      const std::string& stmt,
                                      const std::string& lvalue,
                                      const std::string& op,
@@ -619,7 +713,7 @@ SemanticOutput Engine::Collect_Assert(std::size_t line,
     acheck.line   = line;
     acheck.stmt   = stmt;
     acheck.lvalue = lvalue;
-    acheck.rvalue = rvalue;
+    acheck.raw_rvalue = rvalue;
     
     if (actions)
     {
@@ -647,9 +741,10 @@ SemanticOutput Engine::Collect_Assert(std::size_t line,
     }
 
     // STORE ASSERT_MSG
+    acheck.context = _context;
     _env.atable.push_back(acheck);
 
-    return SEM_OK();
+    return Arcana_Result::ARCANA_RESULT__OK;
 }
 
 
@@ -670,16 +765,11 @@ Arcana_Result Enviroment::CheckArgs(const Arcana::Support::Arguments& args) noex
     {
         if (std::find(profile.profiles.begin(), profile.profiles.end(), args.profile.value) == profile.profiles.end())
         {
-            ERR("Requested profile " << TOKEN_MAGENTA(args.profile.value) << " is invalid!");
-
-            auto closest = Support::FindClosest(profile.profiles, args.profile.value);
-
-            if (closest)
-            {
-                HINT("Did you mean " << ANSI_BCYAN << closest.value() << ANSI_RESET << "?");
-            }
-
-            return Arcana_Result::ARCANA_RESULT__NOK;
+            return Raise_Error_With_Hint(
+                NO_CTX,
+                "Requested profile " << TOKEN_MAGENTA(args.profile.value) << " is invalid!",
+                Support::FindClosest(profile.profiles, args.profile.value)
+            );
         }
 
         profile.selected = args.profile.value;
@@ -718,23 +808,19 @@ Arcana_Result Enviroment::CheckArgs(const Arcana::Support::Arguments& args) noex
 
         if (!task)
         {
-            ERR("Unknown task " << TOKEN_MAGENTA(args.task.value));
-
-            auto keys    = Table::Keys(ftable);
-            auto closest = Support::FindClosest(keys, args.task.value);
-
-            if (closest)
-            {
-                HINT("Did you mean " << ANSI_BCYAN << closest.value() << ANSI_RESET << "?");
-            }
-
-            return Arcana_Result::ARCANA_RESULT__NOK;
+            return Raise_Error_With_Hint(
+                NO_CTX,
+                "Unknown task " << TOKEN_MAGENTA(args.task.value),
+                Support::FindClosest(Table::Keys(ftable), args.task.value)
+            );
         }
         else if (!task.value().get().hasAttribute(Semantic::Attr::Type::PUBLIC))
         {
             // REQUIRE PUBLIC WHEN REQUESTED VIA CLI
-            ERR("Requested task " << TOKEN_MAGENTA(args.task.value << ANSI_RESET << " does not have " << ANSI_BMAGENTA << "public") << " attribute");
-            return Arcana_Result::ARCANA_RESULT__NOK;
+            return Raise_Error(
+                NO_CTX,
+                "Requested task " << TOKEN_MAGENTA(args.task.value) << " does not have " << TOKEN_CYAN("public") << " attribute"
+            );
         }
 
         // TOGGLE MAIN TO REQUESTED TASK
@@ -760,8 +846,11 @@ Arcana_Result Enviroment::CheckArgs(const Arcana::Support::Arguments& args) noex
 
         if (!main_task.size())
         {
-            ERR("No main task specified, make it explicit in the arcfile with the @main attribute or pass a task on the command line");
-            return Arcana_Result::ARCANA_RESULT__NOK;
+            return Raise_Error(
+                NO_CTX,
+                "No main task specified, make it explicit in the " << ANSI_FG(217, 150, 38) << "arcfile" << ANSI_RESET << 
+                " with the @" << TOKEN_CYAN("main") << " attribute or pass any task via command line"
+            );
         }
     }
 
@@ -771,10 +860,10 @@ Arcana_Result Enviroment::CheckArgs(const Arcana::Support::Arguments& args) noex
 
 
 /**
- * @brief Resolve dependencies/then links and finalize interpreter defaults.
+ * @brief Resolve dependencies/then links and finalize engine defaults.
  * @return Empty optional on success, error string on failure.
  */
-const std::optional<std::string> Enviroment::AlignEnviroment() noexcept
+Arcana_Result Enviroment::AlignEnviroment() noexcept
 {
     std::stringstream ss;
 
@@ -797,11 +886,11 @@ const std::optional<std::string> Enviroment::AlignEnviroment() noexcept
 
                 if (it == ftable.end())
                 {
-                    auto closest = Support::FindClosest(Table::Keys(ftable), p);
-
-                    ss << "Invalid dependecy " << TOKEN_MAGENTA(p) << " for task " << TOKEN_MAGENTA(task.task_name) << std::endl;
-                    if (closest) ss << "[" << ANSI_BGREEN << "HINT" << ANSI_RESET << "]  Did you mean " << ANSI_BCYAN << closest.value() << ANSI_RESET << "?";
-                    return ss.str();
+                    return Raise_Error_With_Hint(
+                        task.getAttrContext(attr),
+                        "Invalid dependency " << TOKEN_MAGENTA(p) << " for task " << TOKEN_CYAN(task.task_name),
+                        Support::FindClosest(Table::Keys(ftable), p)
+                    );
                 }
 
                 // APPEND LINK IN ORDER
@@ -817,30 +906,23 @@ const std::optional<std::string> Enviroment::AlignEnviroment() noexcept
         }
     }
 
-    // SET DEFAULT INTERPRETER IF MISSING
-    if (default_interpreter.empty())
+    // SET DEFAULT ENGINE IF MISSING
+    if (default_interpreter.is_default == false)
     {
 #if defined(_WIN32)
-        default_interpreter = "C:\\Windows\\System32\\cmd.exe";
+        default_interpreter.command = "C:\\Windows\\System32\\cmd.exe";
+        default_interpreter.flags   = "/d /s /c"
+        default_interpreter.ext     = ".bat";
 #else
-        default_interpreter = "/bin/bash";
+        default_interpreter.command = "/bin/bash";
+        default_interpreter.flags.clear();
+        default_interpreter.ext     = ".sh";
 #endif
+
+        default_interpreter.is_default = true;
     }
 
-    // ASSIGN INTERPRETER TO EACH TASK
-    for (auto& [_, task] : ftable)
-    {
-        if (task.hasAttribute(Attr::Type::INTERPRETER))
-        {
-            task.interpreter = task.getProperties(Attr::Type::INTERPRETER).at(0);
-        }
-        else
-        {
-            task.interpreter = default_interpreter;
-        }
-    }
-
-    return std::nullopt;
+    return Arcana_Result::ARCANA_RESULT__OK;
 }
 
 
@@ -849,8 +931,14 @@ const std::optional<std::string> Enviroment::AlignEnviroment() noexcept
  * @brief Expand variables/internals, compute glob expansions, expand tasks and asserts.
  * @return Empty optional on success, error string on failure.
  */
-const std::optional<std::string> Enviroment::Expand() noexcept
+Arcana_Result Enviroment::Expand() noexcept
 {
+    auto IsExtension = [&] (const std::string& s) -> bool
+    {
+        static const std::regex re(R"(^\.[A-Za-z0-9]+(\.[A-Za-z0-9]+)*$)");
+        return s.empty() || std::regex_match(s, re);
+    };
+
     Expander ex(*this);
 
     // COMPUTE MAX THREADS DEFAULT
@@ -860,19 +948,6 @@ const std::optional<std::string> Enviroment::Expand() noexcept
     {
         max_threads = machine_max_threads;
     }
-
-    // COLLECT VARIABLE KEYS FOR INPUT VALIDATION
-    auto var_keys = Table::Keys(vtable);
-
-    if (var_keys.empty())
-    {
-        return std::nullopt;
-    }
-
-    // SORT BY LENGTH (LONGEST FIRST)
-    std::sort(var_keys.begin(), var_keys.end(), [] (const std::string& a, const std::string& b) {
-        return a.size() > b.size();
-    });
     
     // EXPAND VTABLE AND COMPUTE GLOB EXPANSIONS
     Glob::ExpandOptions opt;
@@ -885,9 +960,9 @@ const std::optional<std::string> Enviroment::Expand() noexcept
         for (auto& value : var.var_value)
         {
             // EXPAND TEXT TOKENS
-            if (auto err = ex.ExpandText(value, {}); err.has_value())
+            if (auto err = ex.ExpandText(value, {}); err != Arcana_Result::ARCANA_RESULT__OK)
             {
-                return err;
+                return Raise_Error(var.context.str(), ex.Get_Error());
             }
 
             if (!var.hasAttribute(Attr::Type::GLOB)) continue;
@@ -898,12 +973,11 @@ const std::optional<std::string> Enviroment::Expand() noexcept
 
             if (!Glob::Parse(value, pattern, error))
             {
-                std::stringstream ss;
-                ss << "While expanding " << TOKEN_MAGENTA(name)
-                   << " an invalid glob was detected " << TOKEN_MAGENTA(pattern.normalized)
-                   << ": " << ParseErrorRepr(error);
-    
-                return ss.str();
+                return Raise_Error(
+                    var.context.str(),
+                    "While expanding " << TOKEN_MAGENTA(name) << " an invalid glob was detected " 
+                                       << TOKEN_MAGENTA(pattern.normalized) << ": " << ParseErrorRepr(error)
+                );
             }
 
             Arcana::Glob::Expand(pattern, ".", var.glob_expansion, opt);
@@ -914,62 +988,56 @@ const std::optional<std::string> Enviroment::Expand() noexcept
     // HANDLE MAPPED VARS EXPANSION
     auto map_required = Table::GetValues(vtable, Semantic::Attr::Type::MAP);
 
-    if (!map_required.has_value()) return std::nullopt;
-
-    for (auto& stmt : map_required.value())
+    if (map_required.has_value())
     {
-        Glob::ParseError e1, e2;
-        Glob::MapError   m1;
-
-        auto& map_to   = stmt.get();
-        auto& map_from = vtable[map_to.getProperties(Semantic::Attr::Type::MAP).at(0)];
-
-        if (!Arcana::Glob::MapGlobToGlob(map_from.var_value, map_to.var_value[0],
-                                            map_from.glob_expansion, map_to.glob_expansion, e1, e2, m1))
+        for (auto& stmt : map_required.value())
         {
-            std::stringstream ss;
-            ss << "While mapping " << TOKEN_MAGENTA(map_from.var_name)
-                << " to " << TOKEN_MAGENTA(map_to.var_name)
-                << ": incompatible globs";
-
-            return ss.str();
+            Glob::ParseError e1, e2;
+            Glob::MapError   m1;
+    
+            auto& map_to   = stmt.get();
+            auto& map_from = vtable[map_to.getProperties(Semantic::Attr::Type::MAP).at(0)];
+    
+            if (!Arcana::Glob::MapGlobToGlob(map_from.var_value, map_to.var_value[0],
+                                                map_from.glob_expansion, map_to.glob_expansion, e1, e2, m1))
+            {
+                return Raise_Error(
+                    map_to.getAttrContext(Semantic::Attr::Type::MAP),
+                    "While mapping " << TOKEN_MAGENTA(map_from.var_name) << " to " << TOKEN_MAGENTA(map_to.var_name) << ": incompatible globs"
+                );
+            }
         }
     }
 
-    // EXPAND ASSERTS
-    auto keys = Table::Keys(ftable);
 
+    // EXPAND ASSERTS
     for (auto& assert : atable)
     {
-        for (const auto& action : assert.actions)
+        for (const auto& act : assert.actions)
         {
-            if (std::find(keys.begin(), keys.end(), action) == keys.end())
+            if (ftable.find(act) == ftable.end())
             {
-                std::stringstream ss;
-                ss << "Callback " << TOKEN_MAGENTA(action) << " is undefined in statement " << TOKEN_CYAN("assert");
-                
-                if (auto closest = Support::FindClosest(keys, action); closest.has_value() )
-                {
-                    ss << std::endl << "[" << TOKEN_GREEN("HINT") << "] Did you mean " << TOKEN_CYAN(closest.value()) << "?";
-                }
-
-                return ss.str();
+                return Raise_Error_With_Hint(
+                    assert.context.str(),
+                    "Callback " << TOKEN_MAGENTA(act) << " is undefined in statement " << TOKEN_CYAN("assert"),
+                    Support::FindClosest(Table::Keys(ftable), act)
+                );
             }
         }
 
-        if (auto err = ex.ExpandAssertSide(assert.lvalue, assert); err.has_value())
+        if (auto err = ex.ExpandAssertSide(assert.lvalue, assert); err != Arcana_Result::ARCANA_RESULT__OK)
         {
-            return err;
+            return Raise_Error(assert.context.str(), ex.Get_Error());
         }
 
-        if (auto err = ex.ExpandAssertSide(assert.rvalue, assert); err.has_value())
+        if (auto err = ex.ExpandAssertSide(assert.raw_rvalue, assert, true); err != Arcana_Result::ARCANA_RESULT__OK)
         {
-            return err;
+            return Raise_Error(assert.context.str(), ex.Get_Error());
         }
 
-        if (auto err = ex.ExpandText(assert.reason, {}); err.has_value())
+        if (auto err = ex.ExpandText(assert.reason, {}); err != Arcana_Result::ARCANA_RESULT__OK)
         {
-            return err;
+            return Raise_Error(assert.context.str(), ex.Get_Error());
         }
     }
 
@@ -980,101 +1048,155 @@ const std::optional<std::string> Enviroment::Expand() noexcept
         {
             auto properties = task.getProperties(Attr::Type::CACHE);
 
-            if (properties[0] == "track")
+            if (auto it = _cache.find(properties[0]); it != _cache.end())
             {
-                task.cache.type = InstructionTask::Cache::Type::TRACK;
-            }
-            else if (properties[0] == "untrack")
-            {
-                task.cache.type = InstructionTask::Cache::Type::UNTRACK;
+                task.cache.type = it->second;
             }
             else
             {
-                task.cache.type = InstructionTask::Cache::Type::STORE;
-
+                return Raise_Error_With_Hint(
+                    task.getAttrContext(Attr::Type::CACHE),
+                    "Invalid cache algorithm " << TOKEN_MAGENTA(properties[0]),
+                    Support::FindClosest(Table::Keys(_cache), properties[0])
+                );
             }
 
             for (uint32_t i = 1; i < properties.size(); ++i)
             {
                 std::size_t old_size = task.cache.data.size();
 
-                if (auto err = ex.ExpandText(properties[i], {Expander::Algorithm::LIST}, &task.cache.data); err.has_value())
+                if (auto err = ex.ExpandText(properties[i], {Expander::Algorithm::LIST}, &task.cache.data); err != Arcana_Result::ARCANA_RESULT__OK)
                 {
-                    return err;
+                    return Raise_Error(task.context.str(), ex.Get_Error());
                 }
 
-#warning SF: handle multi value vars
-#if 0
-                if (!task.cache.data.size())
-                {
-                    auto values = Support::split(task., ' ');
-                    task.cache.data.insert(task.cache.data.end(), values.begin(), values.end());
-                }
-#endif
                 for (std::size_t j = old_size; j < task.cache.data.size(); ++j)
                 {
                     const auto& file = task.cache.data[j];
 
                     if (!Support::file_exists(file))
                     {
-                        std::stringstream ss;
-                        ss << "Cannot " << properties[0] << " " << TOKEN_CYAN(file) << " from instruction " << TOKEN_CYAN(properties[i]);
-                        return ss.str();
+                        return Raise_Error(
+                            task.getAttrContext(Attr::Type::CACHE),
+                            "Cannot " << properties[0] << " " << TOKEN_MAGENTA(file) << ": file not exists!"
+                        );
                     }
                 }
             }
         }
 
-        // EXPAND TASK INTERPRETER OVERRIDE
-        if (task.hasAttribute(Attr::Type::INTERPRETER))
+        if (task.hasAttribute(Attr::Type::ENGINE))
         {
-            std::stringstream ss;
-            auto properties = task.getProperties(Attr::Type::INTERPRETER);
+            std::size_t index = 0;
 
-            if (auto err = ex.ExpandText(properties[0], {}); err.has_value())
-            {
-                return err;
-            }
-            
-            task.interpreter = properties[0];
+            task.engine.is_default = false;
+            const auto& properties = task.getProperties(Attr::Type::ENGINE);
 
-            if (!Support::file_exists(task.interpreter))
+            if (auto it = _engines.find(properties[0]); it != _engines.end())
             {
-                ss << "Interpreter " << TOKEN_MAGENTA(task.interpreter) << " is missing or unknown";
-                return ss.str();
+                task.engine.type = it->second;
             }
+            else
+            {
+                return Raise_Error_With_Hint(
+                    task.getAttrContext(Attr::Type::ENGINE),
+                    "Invalid engine algorithm " << TOKEN_MAGENTA(properties[0]),
+                    Support::FindClosest(Table::Keys(_engines), properties[0])
+                );
+            }
+
+            if (task.engine.type == Executor::FILE)
+            {
+                if (properties.size() < 3)
+                {
+                    return Raise_Error(
+                        task.getAttrContext(Attr::Type::ENGINE),
+                        "Missing arguments for attribute " << TOKEN_MAGENTA("engine")
+                    );
+                }
+
+                task.engine.ext     = properties[1];
+                task.engine.command = properties[2];
+                index               = 3;
+            }
+            else
+            {
+                task.engine.command = properties[1];
+                index               = 2;
+            }
+
+            if (auto err = ex.ExpandText(task.engine.ext, {}); err != Arcana_Result::ARCANA_RESULT__OK)
+            {
+                return Raise_Error(task.context.str(), ex.Get_Error());
+            }
+
+            if (!IsExtension(task.engine.ext))
+            {
+                return Raise_Error(
+                    task.getAttrContext(Attr::Type::ENGINE),
+                    "File extension is missing or wrong"
+                );
+            }
+
+            if (auto err = ex.ExpandText(task.engine.command, {}); err != Arcana_Result::ARCANA_RESULT__OK)
+            {
+                return Raise_Error(task.context.str(), ex.Get_Error());
+            }
+
+            if (!Support::Is_In_Path(task.engine.command) && !Support::file_exists(task.engine.command))
+            {
+                return Raise_Error(
+                    task.getAttrContext(Attr::Type::ENGINE),
+                    "Binary " << TOKEN_MAGENTA(task.engine.command) << " is missing or unknown"
+                );
+            }
+
+            task.engine.flags.insert(task.engine.flags.begin(), properties.begin() + index, properties.end());
+
+            for (uint32_t i = 0; i < task.engine.flags.size(); ++i)
+            {
+                if (auto err = ex.ExpandText(task.engine.flags[i], {Expander::Algorithm::INLINE}); err != Arcana_Result::ARCANA_RESULT__OK)
+                {
+                    return Raise_Error(task.context.str(), ex.Get_Error());
+                }
+            }
+        }
+        else
+        {
+            task.engine = default_interpreter;
         }
 
 
         std::vector<std::string> expanded_instrs;
         task.expanded = false;
+
+        bool can_expand = task.hasAttribute(Attr::Type::MULTITHREAD);
+
         // EXPAND INSTRUCTION LINES
         for (auto& instr : task.task_instrs)
         {
-            size_t old_val = expanded_instrs.size();
+            bool used_algo[4] = { false };
 
             if (auto err = ex.ExpandText(instr, {
                 Expander::Algorithm::INLINE, 
-                Expander::Algorithm::LIST
-            }, &expanded_instrs); err.has_value())
+                Expander::Algorithm::LIST,
+                Expander::Algorithm::SIZE,
+                Expander::Algorithm::EMPTY,
+            }, &expanded_instrs, used_algo); err != Arcana_Result::ARCANA_RESULT__OK)
             {
-                return err;
+                return Raise_Error(task.context.str(), ex.Get_Error());
             }
             
-            if (expanded_instrs.size() - old_val > 1)
+            if (used_algo[1] && can_expand)
             {
                 task.expanded = true;
-            }
-            else if (expanded_instrs.size() == old_val)
-            {
-                expanded_instrs.push_back(instr);
             }
         }
 
         task.task_instrs = expanded_instrs;
     }
     
-    return std::nullopt;
+    return Arcana_Result::ARCANA_RESULT__OK;
 }
 
 
@@ -1083,7 +1205,7 @@ const std::optional<std::string> Enviroment::Expand() noexcept
  * @brief Evaluate all collected asserts after expansion.
  * @return Empty optional on success, error string on first failure.
  */
-const std::optional<std::string> Enviroment::ExecuteAsserts(std::vector<std::string>& reco_cb) noexcept
+Arcana_Result Enviroment::ExecuteAsserts(std::vector<std::string>& reco_cb) noexcept
 {
     bool assert_failed = false;
     std::stringstream ss;
@@ -1098,52 +1220,69 @@ const std::optional<std::string> Enviroment::ExecuteAsserts(std::vector<std::str
         switch (assert.check)
         {
             case AssertCheck::CheckType::EQUAL:
-                assert_failed = (assert.lvalue != assert.rvalue);
+                assert_failed = std::find(assert.rvalue.begin(), assert.rvalue.end(), assert.lvalue) == assert.rvalue.end();
                 break;
             case AssertCheck::CheckType::NOT_EQUAL:
-                assert_failed = (assert.lvalue == assert.rvalue);
+                assert_failed = std::find(assert.rvalue.begin(), assert.rvalue.end(), assert.lvalue) != assert.rvalue.end();
                 break;
             case AssertCheck::CheckType::IN:
-                assert_failed = (assert.rvalue.find(assert.lvalue) == std::string::npos);
+                assert_failed = !std::any_of(assert.rvalue.begin(), assert.rvalue.end(), [&] (const std::string& s)
+                {
+                    return s.find(assert.lvalue) != std::string::npos;
+                });
                 break;
             case AssertCheck::CheckType::DEPENDENCIES:
-                assert_failed = !fs::exists(assert.search_path);
+                assert_failed = !std::any_of(assert.search_paths.begin(), assert.search_paths.end(), [] (const auto& p) 
+                { 
+                    return fs::exists(p); 
+                });
                 break;
         }
 
         if (assert_failed)
         {
             // BUILD ERROR MESSAGE
-            ss << "Assert failed on line " << assert.line << ": " << TOKEN_CYAN(assert.stmt);
+            ss << "Assert failed!";
 
             if (assert.check != AssertCheck::CheckType::DEPENDENCIES)
             {
-                ss << " with lvalue: " << TOKEN_MAGENTA(assert.lvalue) << ", rvalue: " << TOKEN_MAGENTA(assert.rvalue) << std::endl;
+                std::stringstream ss0;
+                for (uint32_t i = 0; i < assert.rvalue.size(); ++i)
+                {
+                    ss0 << TOKEN_MAGENTA(assert.rvalue[i]);
+
+                    if ((i + 1) != assert.rvalue.size())
+                    {
+                        ss0 << ", ";
+                    }
+                }
+
+                ss << "\n        lvalue: " << TOKEN_MAGENTA(assert.lvalue) << "\n        rvalue: " << ss0.str() << std::endl;
             }
             else
             {
-                ss << " dependency " << TOKEN_MAGENTA(assert.search_path) << " not found!" << std::endl;
+                ss << "\n        Dependency " << TOKEN_MAGENTA(assert.lvalue) << " not found!" << std::endl;
             }
 
             if (assert.type == AssertCheck::Type::MESSAGE)
             {
                 ss << "Reason: " << assert.reason;
-                return ss.str();
             }
             else
             {
                 for (auto& task : assert.actions)
                 {
-                    ss << "Scheduling recovery callback " << TOKEN_MAGENTA(task);
+                    ss << "[" << "\x1b[93m" << "WARN" << "\x1b[0m" << "] " << "Scheduling recovery callback " << TOKEN_MAGENTA(task) << std::endl;
                     reco_cb.push_back(task);
                 } 
+                ss << std::endl;
             }
+
+            return Raise_Error(assert.context.str(), ss.str());
         }
     }
 
-    if (ss.str().size()) return ss.str();
-
-    return std::nullopt;
+    return Arcana_Result::ARCANA_RESULT__OK;
 }
 
 
@@ -1163,7 +1302,7 @@ const std::optional<std::string> Enviroment::ExecuteAsserts(std::vector<std::str
  * @param s String to expand in-place.
  * @return Empty optional on success, error string on failure.
  */
-std::optional<std::string> Enviroment::Expander::ExpandInternals(std::string& s) noexcept
+Arcana_Result Enviroment::Expander::ExpandInternals(std::string& s) noexcept
 {
     for (int depth = 0; depth < 256; ++depth)
     {
@@ -1171,7 +1310,7 @@ std::optional<std::string> Enviroment::Expander::ExpandInternals(std::string& s)
         std::smatch m;
         if (!std::regex_search(s, m, re_intern))
         {
-            return std::nullopt;
+            return Arcana_Result::ARCANA_RESULT__OK;
         }
 
         const std::string sym = m[1].str();
@@ -1179,16 +1318,32 @@ std::optional<std::string> Enviroment::Expander::ExpandInternals(std::string& s)
         // RESOLVE SYMBOL AND REPLACE
         if (auto st = Core::is_symbol(sym); st != Core::SymbolType::UNDEFINED)
         {
-            const std::string rep = Core::symbol(st);
-            s.replace(static_cast<std::size_t>(m.position(0)), static_cast<std::size_t>(m.length(0)), rep);
+            const auto rep = Core::symbol(st);
+
+            if (st == Core::SymbolType::PATH)
+            {
+                std::string s_out;
+                for (uint32_t i = 0; i < rep.size(); ++i)
+                {
+                    std::string s1 = s;
+                    s_out += s1.replace(static_cast<std::size_t>(m.position(0)), static_cast<std::size_t>(m.length(0)), rep[i]);
+                    if ((i+1) != rep.size()) s_out += "\n";
+                }
+
+                s = s_out;
+            }
+            else
+            {
+                s.replace(static_cast<std::size_t>(m.position(0)), static_cast<std::size_t>(m.length(0)), Support::join(rep));
+            }
         }
         else
         {
-            return "Internal symbol expansion failed for {arc:" + sym + "}";
+            return Raise_Expansion_Error("Internal symbol expansion failed for " << TOKEN_MAGENTA("arc::" << sym));
         }
     }
 
-    return "Too deep internal symbol expansion (depth limit reached)";
+    return Raise_Expansion_Error("Too deep internal symbol expansion (depth limit reached)");
 }
 
 
@@ -1198,20 +1353,28 @@ std::optional<std::string> Enviroment::Expander::ExpandInternals(std::string& s)
  * @param s String to expand in-place.
  * @return Empty optional on success, error string on failure.
  */
-std::optional<std::string> Enviroment::Expander::ExpandArcAll(std::string& s, const std::vector<Algorithm>& allowed_algorithms,
-                                                              std::vector<std::string>* list_exp) noexcept
+Arcana_Result Enviroment::Expander::ExpandArcAll(std::string& s, const std::vector<Algorithm>& allowed_algorithms,
+                                                 std::vector<std::string>* list_exp, bool* used_algo) noexcept
 {
-    std::size_t expected;
+    struct ListExpansionItem
+    {
+        Algorithm   algo;
+        std::vector<std::string>* buffer;
+        size_t      lower_index;
+        size_t      higher_index;
+    };
 
     List expanded;
     expanded.source  = s;
 
-    std::vector<Arcana::Semantic::InstructionAssign*> list_expansions;
+    std::vector<ListExpansionItem> list_expansions;
 
     std::sregex_iterator rx_it1(expanded.source.begin(), expanded.source.end(), re_arc_mode);
     std::sregex_iterator end;
 
-    auto expand = [&] (std::string& src, uint32_t pos = 0) -> void
+    bool list_expanded = false;
+
+    auto expand = [&] (std::string& src, uint32_t pos = 0) noexcept -> Arcana_Result
     {
         ssize_t span = 0;
         for (const auto& match : expanded.matches)
@@ -1220,30 +1383,131 @@ std::optional<std::string> Enviroment::Expander::ExpandArcAll(std::string& s, co
             
             switch (match.algo)
             {
-                case Algorithm::NORMAL: content = match.datasource->GetListValue();      break;
-                case Algorithm::LIST:   content = match.datasource->glob_expansion[pos]; break;
-                case Algorithm::INLINE: content = match.datasource->GetListGlob();       break;
+                case Algorithm::NORMAL:     content = match.datasource->GetListValue(1, 0);                                           break;
+                case Algorithm::LIST:       content = match.buffer->at(pos);                                                          break;
+                case Algorithm::INLINE:     content = match.datasource->GetList(match.higher_index, match.lower_index, match.buffer); break;
+                case Algorithm::SIZE:       content = std::to_string(match.buffer->size());                                           break;
+                case Algorithm::EMPTY:      content = match.datasource->empty() ? "1" : "0";                                          break;
+                case Algorithm::FILESYSTEM: content = match.buffer->at(pos);                                                          break;
+                default: break;
             }   
 
             src.replace(match.start + span, match.count, content);
     
             span += content.length() - match.pattern_len;
         }
+
+        return Arcana_Result::ARCANA_RESULT__OK;
     };
+
+    auto validate_expansion_args = [&] (const std::string& src, 
+                                        std::vector<std::string>* data, 
+                                        const std::string& args, 
+                                        size_t& l, 
+                                        size_t& r) noexcept -> Arcana_Result
+    {
+        const auto&              values = Support::split(args);
+        const auto               size   = values.size();
+        std::optional<long long> conversion;
+
+        if (size > 2)
+        {
+            return Raise_Expansion_Error("Invalid argument count " << TOKEN_MAGENTA(values.size()) << " in statement:\n" << TOKEN_LYELLOW(src));
+        }
+
+        l = r = 0;
+
+        switch (size)
+        {
+            case 0:
+                r = data->size();
+                break;
+
+            case 1: 
+                l = 0; 
+                if (conversion = Support::to_number(values[0]); !conversion.has_value())
+                {
+                    return Raise_Expansion_Error("Invalid argument " << TOKEN_MAGENTA(values[0]) << " in statement:\n" << TOKEN_LYELLOW(src) << " must be a positive number");
+                }
+                r = conversion.value();
+
+                if (r > data->size())
+                {
+                    return Raise_Expansion_Error("Invalid argument " << TOKEN_MAGENTA(r) << " in statement:\n" << TOKEN_LYELLOW(src) << ", OOL value! (max is " << data->size() << ")");
+                }
+
+                break;
+            
+            case 2: 
+                if (conversion = Support::to_number(values[0]); !conversion.has_value())
+                {
+                    return Raise_Expansion_Error("Invalid argument " << TOKEN_MAGENTA(values[0]) << " in statement:\n" << TOKEN_LYELLOW(src) << " must be a positive number");
+                }
+                l = conversion.value();
+
+                if (conversion = Support::to_number(values[1]); !conversion.has_value())
+                {
+                    return Raise_Expansion_Error("Invalid argument " << TOKEN_MAGENTA(values[1]) << " in statement:\n" << TOKEN_LYELLOW(src) << " must be a positive number");
+                }
+                r = conversion.value();
+
+                if (l >= data->size())
+                {
+                    return Raise_Expansion_Error("Invalid argument " << TOKEN_MAGENTA(l) << " in statement:\n" << TOKEN_LYELLOW(src) << ": OOL value! (max is " << data->size() << ")");
+                }
+
+                if (r > data->size())
+                {
+                    return Raise_Expansion_Error("Invalid argument " << TOKEN_MAGENTA(r) << " in statement:\n" << TOKEN_LYELLOW(src) << ": OOL value! (max is " << data->size() << ")");
+                }
+
+                if (l >= r)
+                {
+                    return Raise_Expansion_Error("Invalid argument " << TOKEN_MAGENTA(l) << " in statement:\n" << TOKEN_LYELLOW(src) << ": lvalue is greather then rvalue");
+                }
+
+                break;
+
+            default:
+                return Raise_Expansion_Error(
+                    "Invalid argument count " << TOKEN_MAGENTA(values.size())
+                    << " in statement:\n" << TOKEN_LYELLOW(src)
+                );
+        }
+
+        return Arcana_Result::ARCANA_RESULT__OK;
+        
+    };
+
+
+    auto allowed_algos_str_list = [&] (const std::vector<Algorithm>& allowed_algorithms) -> std::vector<std::string>
+    {
+        std::vector<std::string> data;
+
+        for (const auto& algo : allowed_algorithms)
+        {
+            data.push_back(Expander::AlgorithmRepr(algo));
+        }
+
+        return data;
+    };
+
 
     for (; rx_it1 != end; ++rx_it1)
     {
         const std::smatch& m         = *rx_it1;
-        const std::string  algorithm = m[1].str();
-        const std::string  name      = m[2].str();
+        const std::string  name      = m[1].str();
+        const std::string  algorithm = m[2].str();
+        const std::string  args      = m[3].str();
 
         // LOOKUP VARIABLE VALUE
         auto it = env.vtable.find(name);
         if (it == env.vtable.end())
         {
-            std::stringstream err;
-            err << "Undefined variable " << TOKEN_MAGENTA(name) << " in statement " << TOKEN_CYAN(s);
-            return err.str();
+            return Raise_Expansion_Error_With_Hint(
+                "Undefined variable " << TOKEN_MAGENTA(name) << " in statement:\n" << TOKEN_LYELLOW(s),
+                Support::FindClosest(Table::Keys(env.vtable), name)
+            );
         }
 
         Algorithm algo;
@@ -1252,25 +1516,79 @@ std::optional<std::string> Enviroment::Expander::ExpandArcAll(std::string& s, co
         {
             algo = eit->second;
         }
-
-        if (std::find(allowed_algorithms.begin(), allowed_algorithms.end(), algo) != allowed_algorithms.end())
+        else
         {
-            if (it->second.glob_expansion.size() == 0)
+            const auto& algos = allowed_algos_str_list(allowed_algorithms);
+
+            if (algos.empty())
             {
-                std::stringstream err;
-                err << "Invalid expand algorithm " << TOKEN_MAGENTA(algorithm) << " for variable " << TOKEN_CYAN(name) << " in statement " << TOKEN_CYAN(s);
-                return err.str();
+                return Raise_Expansion_Error(
+                    "Undefined algorithm " << TOKEN_MAGENTA(algorithm) << " in statement:\n" << TOKEN_LYELLOW(s)
+                );
+            }
+            else
+            {
+                return Raise_Expansion_Error_With_Hint(
+                    "Undefined algorithm " << TOKEN_MAGENTA(algorithm) << " in statement:\n" << TOKEN_LYELLOW(s),
+                    Support::FindClosest(allowed_algos_str_list(allowed_algorithms), algorithm)
+                );
+            }
+        }
+
+        if (auto found_algo = std::find(allowed_algorithms.begin(), allowed_algorithms.end(), algo); found_algo != allowed_algorithms.end())
+        {
+            if (used_algo != nullptr)
+            {
+                used_algo[found_algo - allowed_algorithms.begin()] = true;
+            }
+            
+            size_t l = 0, r = 0;
+
+            auto* buffer = &it->second.glob_expansion;
+            if (buffer->size() == 0)
+            {
+                buffer = &it->second.var_value;
             }
 
-            if (algo == Algorithm::LIST) list_expansions.push_back(&it->second);
+            if (algo == Algorithm::LIST || algo == Algorithm::INLINE)
+            {
+                if (algo == Algorithm::LIST) 
+                {
+                    list_expanded = true;
+                }
 
-            expanded.matches.push_back( List::Match {algo, (size_t) m.position(0), (size_t) m.length(0), m[0].str().length(), &it->second} );
+                if (buffer->empty())
+                {
+                    return Raise_Expansion_Error("Invalid algorithm " << TOKEN_MAGENTA(algorithm) << " for empty variable " << TOKEN_CYAN(name) << " in statement:\n" << TOKEN_LYELLOW(s));
+                }
+
+                if (auto err = validate_expansion_args(s, buffer, args, l, r); err != Arcana_Result::ARCANA_RESULT__OK)
+                {
+                    return err;
+                }
+                
+                list_expansions.push_back(ListExpansionItem {algo, buffer, l, r});
+            }
+
+            expanded.matches.push_back( List::Match {algo, (size_t) m.position(0), (size_t) m.length(0), m[0].str().length(), &it->second, buffer, l, r} );
         }
         else
         {
-            std::stringstream err;
-            err << "Invalid expand algorithm " << TOKEN_MAGENTA(algorithm) << " for variable " << TOKEN_CYAN(name) << " in statement " << TOKEN_CYAN(s);
-            return err.str();
+            const auto& algos = allowed_algos_str_list(allowed_algorithms);
+
+            if (algos.empty())
+            {
+                return Raise_Expansion_Error(
+                    "Invalid algorithm " << TOKEN_MAGENTA(algorithm) << " in statement:\n" << TOKEN_LYELLOW(s)
+                );
+            }
+            else
+            {
+                return Raise_Expansion_Error_With_Hint(
+                    "Invalid algorithm " << TOKEN_MAGENTA(algorithm) << " in statement:\n" << TOKEN_LYELLOW(s),
+                    Support::FindClosest(allowed_algos_str_list(allowed_algorithms), algorithm)
+                );
+            }
         }
     }
 
@@ -1287,13 +1605,13 @@ std::optional<std::string> Enviroment::Expander::ExpandArcAll(std::string& s, co
         auto it = env.vtable.find(name);
         if (it == env.vtable.end())
         {
-            std::stringstream err;
-            err << "Undefined variable " << TOKEN_MAGENTA(name) << " in statement " << TOKEN_CYAN(s);
-
-            return err.str();
+            return Raise_Expansion_Error_With_Hint(
+                "Undefined variable " << TOKEN_MAGENTA(name) << " in statement:\n" << TOKEN_LYELLOW(s),
+                Support::FindClosest(Table::Keys(env.vtable), name)
+            );
         }
 
-        expanded.matches.push_back( List::Match {Algorithm::NORMAL, start, len, m[0].str().length(), &it->second});
+        expanded.matches.push_back( List::Match {Algorithm::NORMAL, start, len, m[0].str().length(), &it->second, NULL, 0, 0});
     }
 
     std::sort(expanded.matches.begin(), expanded.matches.end(), [] (const List::Match& a, const List::Match& b)
@@ -1301,48 +1619,69 @@ std::optional<std::string> Enviroment::Expander::ExpandArcAll(std::string& s, co
         return a.start < b.start;
     });
 
-    if (list_expansions.size() > 0)
+    if (list_expansions.size() > 0 && list_expanded)
     {
         if (list_exp == nullptr)
         {
-            std::stringstream err;
-            err << "Invalid expansion algorithm " << TOKEN_CYAN("list") << " algorithm in statement " << TOKEN_MAGENTA(s);
-            return err.str();
+            return Raise_Expansion_Error("Invalid algorithm in statement:\n" << TOKEN_MAGENTA(s));
         }
 
-        expected = list_expansions[0]->glob_expansion.size();
+        std::size_t low_index  = list_expansions[0].lower_index;
+        std::size_t high_index = list_expansions[0].higher_index;
 
-        const bool same_len = std::all_of(list_expansions.begin(), list_expansions.end(), [&] (const auto* list)
+        for (const auto& item : list_expansions)
         {
-            return list->glob_expansion.size() == expected;
+            if (item.algo == Algorithm::LIST)
+            {
+                low_index  = (item.lower_index  < low_index)  ? item.lower_index  : low_index;
+                high_index = (item.higher_index > high_index) ? item.higher_index : high_index;
+            }
+        }
+
+        const bool max_index_valid = std::all_of(list_expansions.begin(), list_expansions.end(), [&] (const ListExpansionItem item)
+        {
+            if (item.algo != Algorithm::LIST) return true;
+            return high_index <= item.buffer->size();
         });
 
-        if (!same_len)
+        const bool low_index_valid = std::all_of(list_expansions.begin(), list_expansions.end(), [&] (const ListExpansionItem item)
         {
-            std::stringstream err;
-            err << "Invalid variables length for " << TOKEN_CYAN("list") << " algorithm in statement " << TOKEN_MAGENTA(s);
-            return err.str();
+            if (item.algo != Algorithm::LIST) return true;
+            return low_index <= item.buffer->size();
+        });
+
+        if (!low_index_valid || !max_index_valid)
+        {
+            return Raise_Expansion_Error("Invalid indexes " << TOKEN_MAGENTA(low_index) << 
+                                         " and " << TOKEN_MAGENTA(high_index) << " in statement:\n" << TOKEN_LYELLOW(s));
         }
 
-        for (uint32_t i = 0; i < expected; ++i)
+        for (uint32_t i = low_index; i < high_index && max_index_valid; ++i)
         {
             std::string src = s;
-            expand(src, i);
+            if (auto err = expand(src, i); err != Arcana_Result::ARCANA_RESULT__OK)
+            {
+                return err;
+            }
             list_exp->push_back(src);
         }
     } 
+    else
+    {
+        if (auto err = expand(s); err != Arcana_Result::ARCANA_RESULT__OK)
+        {
+            return err;
+        }
     
-    expand(s);
+        if (list_exp != nullptr)
+        {
+            list_exp->push_back(s);
+        }
+    }
 
-    return std::nullopt;
+    return Arcana_Result::ARCANA_RESULT__OK;
 }
 
-
-std::optional<std::string> Enviroment::Expander::ExpandLists()
-{
-
-    return std::nullopt;
-}
  
 
 /**
@@ -1350,41 +1689,35 @@ std::optional<std::string> Enviroment::Expander::ExpandLists()
  * @param s String to expand in-place.
  * @return Empty optional on success, error string on failure.
  */
-std::optional<std::string> Enviroment::Expander::ExpandText(std::string& s, const std::vector<Algorithm>& allowed_algorithms,
-                                                            std::vector<std::string>* list_exp) noexcept
+Arcana_Result Enviroment::Expander::ExpandText(std::string& s, const std::vector<Algorithm>& allowed_algorithms,
+                                               std::vector<std::string>* list_exp, bool* used_algo) noexcept
 {
     // EXPAND INTERNALS
-    if (auto err = ExpandInternals(s); err.has_value())
+    if (auto err = ExpandInternals(s); err != Arcana_Result::ARCANA_RESULT__OK)
     {
         return err;
+    }
+
+    // CHECK IF __path__ SYMBOLS IS USED IN ASSERT STATEMENT.
+    // THE ASSERT STATEMENT IS THE ONLY WHO USE THE ALGORITHM
+    // FILESYSTEM, SO IF ITS CONTAINED INTO allowed_algorithms GET THE VALUES
+    // AS ARRAY OF PATHS
+    for (auto it = allowed_algorithms.begin(); it < allowed_algorithms.end(); ++it)
+    {
+        if ((*it) == Algorithm::FILESYSTEM && list_exp != nullptr && !list_exp->empty())
+        {
+            used_algo[it - allowed_algorithms.begin()] = true;
+            break;
+        }
     }
 
     // EXPAND VARIABLES
-    if (auto err = ExpandArcAll(s, allowed_algorithms, list_exp); err.has_value())
+    if (auto err = ExpandArcAll(s, allowed_algorithms, list_exp, used_algo);  err != Arcana_Result::ARCANA_RESULT__OK)
     {
         return err;
     }
 
-    return std::nullopt;
-}
-
-
-
-/**
- * @brief Extract `{fs:...}` paths from a string.
- * @param s Input string.
- * @param out Output list of extracted paths.
- */
-void Enviroment::Expander::ExtractFsPaths(const std::string& s, std::vector<fs::path>& out) noexcept
-{
-    std::smatch m;
-
-    // ITERATE ALL FS TOKENS
-    for (auto it = s.cbegin(); std::regex_search(it, s.cend(), m, re_fs); )
-    {
-        out.push_back(fs::path(m[1].str()));
-        it = m.suffix().first;
-    }
+    return Arcana_Result::ARCANA_RESULT__OK;
 }
 
 
@@ -1395,23 +1728,49 @@ void Enviroment::Expander::ExtractFsPaths(const std::string& s, std::vector<fs::
  * @param assert Assert object to update.
  * @return Empty optional on success, error string on failure.
  */
-std::optional<std::string> Enviroment::Expander::ExpandAssertSide(std::string& stmt, AssertCheck& assert) noexcept
+Arcana_Result Enviroment::Expander::ExpandAssertSide(std::string& stmt, AssertCheck& assert, bool rvalue) noexcept
 {
+    std::vector<std::string> paths;
+    bool                     used_algo[2] = { false };
+
     // EXPAND TEXT TOKENS
-    if (auto err = ExpandText(stmt, {}); err.has_value())
+    if (auto err = ExpandText(stmt, {Algorithm::FILESYSTEM, Algorithm::LIST}, &paths, used_algo); err != Arcana_Result::ARCANA_RESULT__OK)
     {
         return err;
     }
 
-    // EXTRACT FS PATHS AND UPDATE ASSERT_MSG MODE
-    std::vector<fs::path> paths;
-    ExtractFsPaths(stmt, paths);
-
-    if (!paths.empty())
+    if (used_algo[0] && used_algo[1])
     {
-        assert.check       = AssertCheck::CheckType::DEPENDENCIES;
-        assert.search_path = paths.back() / assert.lvalue;
+        return Raise_Expansion_Error("Cannot use " << TOKEN_MAGENTA("fs") << " and " << TOKEN_MAGENTA("list") << " together in statement:\n" << TOKEN_LYELLOW(stmt));
     }
 
-    return std::nullopt;
+    if (used_algo[0])
+    {
+        assert.check = AssertCheck::CheckType::DEPENDENCIES;
+
+        for (auto& path : paths)
+        {
+            assert.search_paths.push_back(fs::path(path) / assert.lvalue);
+        }
+    }
+    else if (rvalue)
+    {
+        const auto& refs = Support::split(stmt, '\n');
+
+        if (refs.size() > 1)
+        {
+            assert.check = AssertCheck::CheckType::DEPENDENCIES;
+            for (auto& path : refs)
+            {
+                assert.search_paths.push_back(fs::path(path) / assert.lvalue);
+            }
+        }
+        else
+        {
+            assert.rvalue.insert(assert.rvalue.end(), paths.begin(), paths.end());
+        }
+
+    }
+
+    return Arcana_Result::ARCANA_RESULT__OK;
 }

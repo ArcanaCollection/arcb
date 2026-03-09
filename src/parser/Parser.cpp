@@ -50,9 +50,9 @@ Parser::Parser(Scan::Lexer& l, Grammar::Engine& e)
  */
 Arcana_Result Parser::Parse(Semantic::Enviroment& env)
 {
-    Scan::Token             token;
-    Grammar::Match          match;
-    Support::SemanticOutput astout;
+    Scan::Token    token;
+    Grammar::Match match;
+    Arcana_Result  result;
 
     // ITERATE TOKENS UNTIL ERROR OR EOF
     do
@@ -70,14 +70,14 @@ Arcana_Result Parser::Parse(Semantic::Enviroment& env)
             // DEFAULT CASE HANDLES NEW LINES AND PARTIAL MATCH
             switch (match.type)
             {
-                case Grammar::Rule::VARIABLE_ASSIGN:   astout = Handle_VarAssign(match);     match.valid = false;  break;
-                case Grammar::Rule::VARIABLE_JOIN:     astout = Handle_VarJoin(match);       match.valid = false;  break;
-                case Grammar::Rule::ATTRIBUTE:         astout = Handle_Attribute(match);     match.valid = false;  break;
-                case Grammar::Rule::TASK_DECL:         astout = Handle_TaskDecl(match);      match.valid = false;  break;
-                case Grammar::Rule::USING:             astout = Handle_Using(match);         match.valid = false;  break;
-                case Grammar::Rule::MAPPING:           astout = Handle_Mapping(match);       match.valid = false;  break;
-                case Grammar::Rule::ASSERT_MSG:        astout = Handle_Assert(match, false); match.valid = false;  break;
-                case Grammar::Rule::ASSERT_ACT:        astout = Handle_Assert(match, true);  match.valid = false;  break;
+                case Grammar::Rule::VARIABLE_ASSIGN:   result = Handle_VarAssign(match);     match.valid = false;  break;
+                case Grammar::Rule::VARIABLE_JOIN:     result = Handle_VarJoin(match);       match.valid = false;  break;
+                case Grammar::Rule::ATTRIBUTE:         result = Handle_Attribute(match);     match.valid = false;  break;
+                case Grammar::Rule::TASK_DECL:         result = Handle_TaskDecl(match);      match.valid = false;  break;
+                case Grammar::Rule::USING:             result = Handle_Using(match);         match.valid = false;  break;
+                case Grammar::Rule::MAPPING:           result = Handle_Mapping(match);       match.valid = false;  break;
+                case Grammar::Rule::ASSERT_MSG:        result = Handle_Assert(match, false); match.valid = false;  break;
+                case Grammar::Rule::ASSERT_ACT:        result = Handle_Assert(match, true);  match.valid = false;  break;
                 default:                                                                     match.valid = false;  break;
             }
 
@@ -89,31 +89,22 @@ Arcana_Result Parser::Parse(Semantic::Enviroment& env)
                 Arcana_Result        res = Handle_Import(match, new_env);
 
                 // PROPAGATE ERROR
-                if (res != ARCANA_RESULT__OK)
-                {
-                    return res;
-                }
+                if (res != ARCANA_RESULT__OK) return res;
             }
 
-            // REPORT SEMANTIC ERRORS VIA CALLBACK
-            if (astout.result != Semantic_Result::AST_RESULT__OK)
-            {
-                return Analisys_Error(lexer.source(), astout, match);
-            }
+            if (result != Arcana_Result::ARCANA_RESULT__OK) return result;
         }
 
         // REPORT GRAMMAR ERRORS VIA CALLBACK
-        if (match.isError())
-        {
-            return Parsing_Error(lexer.source(), match);
-        }
+        if (match.isError()) return Support::Parser_Error(lexer.source(), match, lexer);
+
     }
     while (token.type != Scan::TokenType::ENDOFFILE);
 
     // EXPORT THE COLLECTED ENVIRONMENT
     env = instr_engine.GetEnvironment();
 
-    return ARCANA_RESULT__OK;
+    return result;
 }
 
 
@@ -128,7 +119,7 @@ Arcana_Result Parser::Parse(Semantic::Enviroment& env)
  * @param match Grammar match for VARIABLE_ASSIGN.
  * @return SemanticOutput from `Collect_Assignment`.
  */
-Arcana::Support::SemanticOutput Parser::Handle_VarAssign(Grammar::Match& match)
+Arcana_Result Parser::Handle_VarAssign(Grammar::Match& match)
 {
     // EXTRACT MATCH POINTS
     Point p1 = match[_I(Grammar::VARIABLE_ASSIGN::VARNAME)];
@@ -140,13 +131,19 @@ Arcana::Support::SemanticOutput Parser::Handle_VarAssign(Grammar::Match& match)
     Lexeme value = input.substr(p2->start, p2->end - p2->start);
 
     // COLLECT INTO SEMANTIC ENGINE
+    instr_engine.Set_Context( Semantic::Context {
+        lexer.source(),
+        input,
+        p1->token.line
+    });
+
     return instr_engine.Collect_Assignment(var, value);
 }
 
 
 
 
-Arcana::Support::SemanticOutput Parser::Handle_VarJoin(Grammar::Match& match)
+Arcana_Result Parser::Handle_VarJoin(Grammar::Match& match)
 {
     // EXTRACT MATCH POINTS
     Point p1 = match[_I(Grammar::VARIABLE_JOIN::VARNAME)];
@@ -158,6 +155,12 @@ Arcana::Support::SemanticOutput Parser::Handle_VarJoin(Grammar::Match& match)
     Lexeme value = input.substr(p2->start, p2->end - p2->start);
 
     // COLLECT INTO SEMANTIC ENGINE
+    instr_engine.Set_Context( Semantic::Context {
+        lexer.source(),
+        input,
+        p1->token.line
+    });
+
     return instr_engine.Collect_Assignment(var, value, true);
 }
 
@@ -173,7 +176,7 @@ Arcana::Support::SemanticOutput Parser::Handle_VarJoin(Grammar::Match& match)
  * @param match Grammar match for ATTRIBUTE.
  * @return SemanticOutput from `Collect_Attribute`.
  */
-Arcana::Support::SemanticOutput Parser::Handle_Attribute(Grammar::Match& match)
+Arcana_Result Parser::Handle_Attribute(Grammar::Match& match)
 {
     // EXTRACT MATCH POINTS
     Point p1 = match[_I(Grammar::ATTRIBUTE::ATTRNAME)];
@@ -185,6 +188,12 @@ Arcana::Support::SemanticOutput Parser::Handle_Attribute(Grammar::Match& match)
     Lexeme attropt = input.substr(p2->start, p2->end - p2->start);
 
     // COLLECT INTO SEMANTIC ENGINE
+    instr_engine.Set_Context( Semantic::Context {
+        lexer.source(),
+        input,
+        p1->token.line
+    });
+
     return instr_engine.Collect_Attribute(attr, attropt);
 }
 
@@ -205,7 +214,7 @@ Arcana::Support::SemanticOutput Parser::Handle_Attribute(Grammar::Match& match)
  * @param match Grammar match for TASK_DECL.
  * @return SemanticOutput from `Collect_Task`.
  */
-Arcana::Support::SemanticOutput Parser::Handle_TaskDecl(Grammar::Match& match)
+Arcana_Result Parser::Handle_TaskDecl(Grammar::Match& match)
 {
     // PREPARE BODY CONTAINER
     Statement body;
@@ -239,10 +248,7 @@ Arcana::Support::SemanticOutput Parser::Handle_TaskDecl(Grammar::Match& match)
             instr = line.substr(start, end - start);
 
             // SKIP EMPTY/WHITESPACE-ONLY INSTRUCTIONS
-            if (!Support::ltrim(instr).empty())
-            {
-                body.push_back(instr);
-            }
+            body.push_back(instr);
         }
     }
     else
@@ -256,11 +262,7 @@ Arcana::Support::SemanticOutput Parser::Handle_TaskDecl(Grammar::Match& match)
             {
                 instr = line.substr(start);
 
-                // SKIP EMPTY/WHITESPACE-ONLY INSTRUCTIONS
-                if (!instr.empty() && !Support::ltrim(instr).empty())
-                {
-                    body.push_back(instr);
-                }
+                body.push_back(instr);
             }
         }
 
@@ -269,11 +271,9 @@ Arcana::Support::SemanticOutput Parser::Handle_TaskDecl(Grammar::Match& match)
         {
             // MAP TOKEN LINE (1-BASED) TO STORED LINE INDEXING
             instr = lexer[line - 1];
-
-            if (!instr.empty())
-            {
-                body.push_back(instr);
-            }
+            
+            body.push_back(instr);
+            
         }
    
         // LAST BODY LINE: FROM LINE START TO BEFORE '}'
@@ -285,16 +285,18 @@ Arcana::Support::SemanticOutput Parser::Handle_TaskDecl(Grammar::Match& match)
             {
                 instr = line.substr(0, end);
 
-                // SKIP EMPTY/WHITESPACE-ONLY INSTRUCTIONS
-                if (!instr.empty() && !Support::ltrim(instr).empty())
-                {
-                    body.push_back(instr);
-                }
+                body.push_back(instr);
             }
         }
     }
 
     // COLLECT INTO SEMANTIC ENGINE
+    instr_engine.Set_Context( Semantic::Context {
+        lexer.source(),
+        header_line,
+        p1->token.line
+    });
+
     return instr_engine.Collect_Task(task, body);
 }
 
@@ -324,12 +326,10 @@ Arcana_Result Parser::Handle_Import(Grammar::Match& match, Semantic::Enviroment&
         // BUILD ERROR MESSAGE (SAME STYLE AS OTHER DIAGNOSTICS)
         std::stringstream ss;
 
-        ss << "[" << ANSI_BRED << "SEMANTIC ERROR" << ANSI_RESET << "] In file "
-           << ANSI_BOLD << this->lexer.source() << ANSI_RESET
-           << ", line " << ANSI_BOLD << match[0]->token.line << ": "
-           << lexer[match[0]->token] << ANSI_RESET << std::endl;
-
-        ss << "                 " << "Invalid import file" << std::endl;
+        ss << "[" << ANSI_BRED << "ERROR" << ANSI_RESET << "] " <<  "In file " << ANSI_FG(217, 150, 38) << ANSI_BOLD << this->lexer.source() << ANSI_RESET 
+           << ":" << ANSI_FG(217, 150, 38) << ANSI_BOLD << match[0]->token.line << ANSI_RESET << " near the statement:\n" 
+           << ANSI_FG(252, 240, 190)  << lexer[match[0]->token] << ANSI_RESET << std::endl
+        << "Invalid import file" << std::endl;
 
         std::cerr << ss.str();
 
@@ -341,11 +341,6 @@ Arcana_Result Parser::Handle_Import(Grammar::Match& match, Semantic::Enviroment&
     Scan::Lexer          lexer(script);
     Grammar::Engine      engine;
     Parsing::Parser      parser(lexer, engine);
-
-    // INSTALL ERROR HANDLERS FOR IMPORT CONTEXT
-    parser.Set_ParsingError_Handler    (Support::ParserError   {lexer});
-    parser.Set_AnalisysError_Handler   (Support::SemanticError {lexer});
-    parser.Set_PostProcessError_Handler(Support::PostProcError {lexer});
 
     // PARSE IMPORT AND MERGE INTO CURRENT ENV ON SUCCESS
     result = parser.Parse(new_env);
@@ -370,7 +365,7 @@ Arcana_Result Parser::Handle_Import(Grammar::Match& match, Semantic::Enviroment&
  * @param match Grammar match for USING.
  * @return SemanticOutput from `Collect_Using`.
  */
-Arcana::Support::SemanticOutput Parser::Handle_Using(Grammar::Match& match)
+Arcana_Result Parser::Handle_Using(Grammar::Match& match)
 {
     // EXTRACT MATCH POINTS
     Point p1 = match[_I(Grammar::USING::WHAT)];
@@ -382,6 +377,12 @@ Arcana::Support::SemanticOutput Parser::Handle_Using(Grammar::Match& match)
     Lexeme opt   = input.substr(p2->start, p2->end - p2->start);
 
     // COLLECT INTO SEMANTIC ENGINE
+    instr_engine.Set_Context( Semantic::Context {
+        lexer.source(),
+        input,
+        p1->token.line
+    });
+
     return instr_engine.Collect_Using(what, opt);
 }
 
@@ -397,7 +398,7 @@ Arcana::Support::SemanticOutput Parser::Handle_Using(Grammar::Match& match)
  * @param match Grammar match for MAPPING.
  * @return SemanticOutput from `Collect_Mapping`.
  */
-Arcana::Support::SemanticOutput Parser::Handle_Mapping(Grammar::Match& match)
+Arcana_Result Parser::Handle_Mapping(Grammar::Match& match)
 {
     // EXTRACT MATCH POINTS
     Point p1 = match[_I(Grammar::MAPPING::ITEM_1)];
@@ -409,6 +410,12 @@ Arcana::Support::SemanticOutput Parser::Handle_Mapping(Grammar::Match& match)
     Lexeme item2 = input.substr(p2->start, p2->end - p2->start);
 
     // COLLECT INTO SEMANTIC ENGINE
+    instr_engine.Set_Context( Semantic::Context {
+        lexer.source(),
+        input,
+        p1->token.line
+    });
+
     return instr_engine.Collect_Mapping(item1, item2);
 }
 
@@ -424,7 +431,7 @@ Arcana::Support::SemanticOutput Parser::Handle_Mapping(Grammar::Match& match)
  * @param match Grammar match for ASSERT_MSG.
  * @return SemanticOutput from `Collect_Assert`.
  */
-Arcana::Support::SemanticOutput Parser::Handle_Assert(Grammar::Match& match, bool actions)
+Arcana_Result Parser::Handle_Assert(Grammar::Match& match, bool actions)
 {
     // EXTRACT MATCH POINTS
     Point pStart = match[(actions) ? _I(Grammar::ASSERT_ACT::RESERVED2) : _I(Grammar::ASSERT_MSG::RESERVED2)];
@@ -445,5 +452,11 @@ Arcana::Support::SemanticOutput Parser::Handle_Assert(Grammar::Match& match, boo
     Lexeme reason = input.substr(p4->start, p4->end - p4->start);
 
     // COLLECT INTO SEMANTIC ENGINE
+    instr_engine.Set_Context( Semantic::Context {
+        lexer.source(),
+        input,
+        p1->token.line
+    });
+
     return instr_engine.Collect_Assert(p1->token.line, stmt, lvalue, op, rvalue, reason, actions);
 }

@@ -140,28 +140,6 @@ public:
      */
     Arcana_Result Parse(Semantic::Enviroment& env);
 
-    /**
-     * @brief Sets the callback invoked on grammar/parsing errors.
-     *
-     * @param ecb Callback to store and use when parsing errors occur.
-     */
-    void          Set_ParsingError_Handler    (const ParsingError&  ecb) noexcept { Parsing_Error  = std::move(ecb); }
-
-    /**
-     * @brief Sets the callback invoked on semantic analysis errors.
-     *
-     * @param ecb Callback to store and use when semantic failures occur.
-     */
-    void          Set_AnalisysError_Handler   (const AnalisysError& ecb) noexcept { Analisys_Error = std::move(ecb); }
-
-    /**
-     * @brief Sets the callback invoked on post-processing errors.
-     *
-     * @param ecb Callback to store and use when post-processing failures occur.
-     */
-    void          Set_PostProcessError_Handler(const PostProcError& ecb) noexcept { PostProc_Error = std::move(ecb); }
-
-
 private:
     /// Lexer reference (external ownership).
     Scan::Lexer&     lexer;
@@ -172,14 +150,6 @@ private:
     /// Semantic engine owned by the parser (drives env construction).
     Semantic::Engine instr_engine;
 
-    /// Optional parsing error callback.
-    ParsingError     Parsing_Error;
-
-    /// Optional semantic analysis error callback.
-    AnalisysError    Analisys_Error;
-
-    /// Optional post-processing error callback.
-    PostProcError    PostProc_Error;
 
     /**
      * @brief Handles Rule::VARIABLE_ASSIGN semantic action.
@@ -187,10 +157,10 @@ private:
      * @param match Grammar match describing a variable assignment.
      * @return SemanticOutput describing success or semantic error.
      */
-    Support::SemanticOutput Handle_VarAssign(Grammar::Match& match);
+    Arcana_Result Handle_VarAssign(Grammar::Match& match);
 
 
-    Support::SemanticOutput Handle_VarJoin(Grammar::Match& match);
+    Arcana_Result Handle_VarJoin(Grammar::Match& match);
 
 
     /**
@@ -199,7 +169,7 @@ private:
      * @param match Grammar match describing an attribute statement.
      * @return SemanticOutput describing success or semantic error.
      */
-    Support::SemanticOutput Handle_Attribute(Grammar::Match& match);
+    Arcana_Result Handle_Attribute(Grammar::Match& match);
 
     /**
      * @brief Handles Rule::TASK_DECL semantic action.
@@ -207,7 +177,7 @@ private:
      * @param match Grammar match describing a task declaration.
      * @return SemanticOutput describing success or semantic error.
      */
-    Support::SemanticOutput Handle_TaskDecl(Grammar::Match& match);
+    Arcana_Result Handle_TaskDecl(Grammar::Match& match);
 
     /**
      * @brief Handles Rule::USING semantic action.
@@ -215,7 +185,7 @@ private:
      * @param match Grammar match describing a using statement.
      * @return SemanticOutput describing success or semantic error.
      */
-    Support::SemanticOutput Handle_Using(Grammar::Match& match);
+    Arcana_Result Handle_Using(Grammar::Match& match);
 
     /**
      * @brief Handles Rule::MAPPING semantic action.
@@ -223,7 +193,7 @@ private:
      * @param match Grammar match describing a mapping statement.
      * @return SemanticOutput describing success or semantic error.
      */
-    Support::SemanticOutput Handle_Mapping(Grammar::Match& match);
+    Arcana_Result Handle_Mapping(Grammar::Match& match);
 
     /**
      * @brief Handles Rule::ASSERT_MSG semantic action.
@@ -231,7 +201,7 @@ private:
      * @param match Grammar match describing an assert statement.
      * @return SemanticOutput describing success or semantic error.
      */
-    Support::SemanticOutput Handle_Assert(Grammar::Match& match, bool actions);
+    Arcana_Result Handle_Assert(Grammar::Match& match, bool actions);
     
     /**
      * @brief Handles Rule::IMPORT by parsing a referenced script into a new environment.
@@ -243,7 +213,7 @@ private:
      * @param new_env Output environment produced by parsing the imported script.
      * @return Arcana_Result status code.
      */
-    Arcana_Result           Handle_Import(Grammar::Match& match, Semantic::Enviroment& new_env);
+    Arcana_Result Handle_Import(Grammar::Match& match, Semantic::Enviroment& new_env);
 };
 
 

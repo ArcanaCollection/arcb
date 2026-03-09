@@ -54,6 +54,7 @@ enum class SymbolType : std::uint8_t
 {
     MAIN        = 0, ///< Main task symbol.
     ROOT,            ///< Project root directory.
+    PATH,           
     VERSION,         ///< Arcana version.
     RELEASE,         ///< Arcana release name.
     PROFILE,         ///< Active build profile.
@@ -106,10 +107,11 @@ struct Result
  */
 struct RunOptions
 {
-    bool     silent          = false;                               ///< Suppress standard output.
+    bool     verbose         = false;                               ///< enebles standard output.
     bool     stop_on_error   = true;                                ///< Stop execution on first error.
     unsigned max_parallelism = std::thread::hardware_concurrency(); ///< Max concurrent jobs.
 };
+
 
 
 
@@ -133,7 +135,7 @@ struct RunOptions
  * @return ARCANA_RESULT__OK on success, otherwise a failure code.
  */
 Arcana_Result
-run_jobs(const Jobs::List& jobs, const RunOptions& opt) noexcept;
+run_jobs(Jobs::List& jobs, const RunOptions& opt) noexcept;
 
 
 
@@ -143,9 +145,12 @@ run_jobs(const Jobs::List& jobs, const RunOptions& opt) noexcept;
  * @param[in] type Symbol identifier.
  * @return Reference to the symbol value string.
  */
-std::string&
+std::vector<std::string>
 symbol(Core::SymbolType type) noexcept;
 
+
+std::string
+first_symbol(Core::SymbolType type) noexcept;
 
 
 /**
@@ -166,7 +171,7 @@ is_symbol(const std::string& symbol) noexcept;
  * @param[in] val New symbol value.
  */
 void
-update_symbol(SymbolType type, const std::string& val) noexcept;
+update_symbol(Core::SymbolType type, const std::string& val) noexcept;
 
 
 

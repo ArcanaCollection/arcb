@@ -231,7 +231,7 @@ public:
     Manager(Manager&&)                    noexcept = delete;
     Manager& operator = (const Manager&&) noexcept = delete;
 
-    ~Manager() = default;
+    ~Manager() { _mnt_binary.close(); };
 
     /**
      * @brief Returns the global cache manager instance.

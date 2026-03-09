@@ -34,7 +34,7 @@ USE_MODULE(Arcana);
 
 
 
-#define CHECK_RESULT(op)                    if (auto res = op; res != Arcana_Result::ARCANA_RESULT__OK) { return res; }
+#define CHECK_RESULT(op)                    if (auto res = op; res != Arcana_Result::ARCANA_RESULT__OK) { return (res == Arcana_Result::ARCANA_RESULT__NOK) ? Arcana_Result::ARCANA_RESULT__NOK : Arcana_Result::ARCANA_RESULT__OK; }
 #define CHECK_STR_RESULT(op)                if (auto res = op; res.has_value())                         { ERR(res.value()); return Arcana_Result::ARCANA_RESULT__NOK; }
 
 
@@ -58,11 +58,6 @@ static Arcana_Result Parse(const Support::Arguments& args)
     Scan::Lexer          lexer(args.arcfile);
     Grammar::Engine      engine;
     Parsing::Parser      parser(lexer, engine);
-
-    // REGISTER PARSING, SEMANTIC, AND POST-PROCESS ERROR HANDLERS.
-    parser.Set_ParsingError_Handler    (Support::ParserError   {lexer} );
-    parser.Set_AnalisysError_Handler   (Support::SemanticError {lexer} );
-    parser.Set_PostProcessError_Handler(Support::PostProcError {lexer} );
     
     // PARSE INPUT FILE AND BUILD ENVIRONMENT STATE.
     CHECK_RESULT(parser.Parse(env));
@@ -71,10 +66,10 @@ static Arcana_Result Parse(const Support::Arguments& args)
     CHECK_RESULT(env.CheckArgs(args));
 
     // ALIGN ENVIRONMENT TABLES AND DEFAULTS.
-    CHECK_STR_RESULT(env.AlignEnviroment());
+    CHECK_RESULT(env.AlignEnviroment());
 
     // EXPAND VARIABLES, GLOBS, AND ATTRIBUTE-DRIVEN TRANSFORMS.
-    CHECK_STR_RESULT(env.Expand());
+    CHECK_RESULT(env.Expand());
 
     // CHECK FOR PUBLIC TASKS PRESENCE.
     if (!Table::GetValues(env.ftable, Semantic::Attr::Type::PUBLIC))
@@ -101,14 +96,13 @@ static Arcana_Result Execute(const Support::Arguments& args)
     Jobs::List               joblist;
     Core::RunOptions         runopt;
     std::vector<std::string> recovery;
+    Arcana_Result            result;
 
-    ARC(ANSI_GRAY << "Executing Environment" << ANSI_RESET);
+    if (args.verbose) ARC(ANSI_GRAY << "Executing Environment" << ANSI_RESET);
 
     // EXECUTE ASSERT_MSG STATEMENTS.
-    if (auto res = env.ExecuteAsserts(recovery); res.has_value())
+    if (env.ExecuteAsserts(recovery) != Arcana_Result::ARCANA_RESULT__OK)
     {
-        ERR(res.value());
-
         if (recovery.size() == 0)
         {
             return Arcana_Result::ARCANA_RESULT__NOK;
@@ -122,12 +116,13 @@ static Arcana_Result Execute(const Support::Arguments& args)
     CHECK_RESULT(Support::HandleArgsPostParse(args, env, joblist));
 
     // CONFIGURE RUNTIME EXECUTION OPTIONS.
-    runopt.silent          = args.silent;
+    runopt.verbose         = args.verbose;
     runopt.max_parallelism = env.GetThreads();
 
     // EXECUTE JOBS
-    Arcana_Result result;
-    if (result = Core::run_jobs(joblist, runopt); result == Arcana_Result::ARCANA_RESULT__OK)
+    result = Core::run_jobs(joblist, runopt);
+
+    if (result == Arcana_Result::ARCANA_RESULT__OK)
     {
         Cache::Manager::Instance().Freeze();
     }
@@ -144,7 +139,7 @@ static Arcana_Result Execute(const Support::Arguments& args)
  * @param argv Argument vector.
  * @return Process exit code.
  */
-int main(int argc, char** argv) 
+int main(int argc, char** argv)  
 {   
     Support::Arguments args;
 
@@ -154,7 +149,7 @@ int main(int argc, char** argv)
     // HANDLE PRE PARSE EARLY-EXIT OPTIONS AND VALIDATE INPUTS.
     CHECK_RESULT(Support::HandleArgsPreParse(args));
 
-    ARC(ANSI_GRAY << "Building Environment" << ANSI_RESET);
+    if (args.verbose) ARC(ANSI_GRAY << "Building Environment" << ANSI_RESET);
 
     // PARSE ARCFILE AND PREPARE THE SEMANTIC ENVIRONMENT.
     CHECK_RESULT(Parse(args));
