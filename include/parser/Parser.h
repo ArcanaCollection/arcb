@@ -1,5 +1,5 @@
-#ifndef __ARCANA_PARSER__H__
-#define __ARCANA_PARSER__H__
+#ifndef __ARCB_PARSER__H__
+#define __ARCB_PARSER__H__
 
 #include "Lexer.h"
 #include "Defines.h"
@@ -26,7 +26,7 @@
 
 /**
  * @defgroup Parsing Parsing Pipeline
- * @brief Orchestrates the Arcana parsing pipeline (lexer + grammar + semantic).
+ * @brief Orchestrates the Arcb parsing pipeline (lexer + grammar + semantic).
  *
  * The Parsing module owns the high-level control flow:
  * - iterate tokens from Scan::Lexer
@@ -59,9 +59,9 @@ BEGIN_MODULE(Parsing)
  * - ctx: a human-readable context string describing the stage/location
  * - match: the Grammar::Match containing diagnostic fields (expected terminals, etc.)
  *
- * @return Arcana_Result error code to propagate to the caller.
+ * @return Arcb_Result error code to propagate to the caller.
  */
-using ParsingError  = std::function<Arcana_Result (const std::string& ctx, const Grammar::Match&)>;
+using ParsingError  = std::function<Arcb_Result (const std::string& ctx, const Grammar::Match&)>;
 
 /**
  * @brief Callback invoked on semantic analysis errors.
@@ -71,9 +71,9 @@ using ParsingError  = std::function<Arcana_Result (const std::string& ctx, const
  * - SemanticOutput: semantic engine result and optional hint
  * - match: the Grammar::Match that triggered the semantic action
  *
- * @return Arcana_Result error code to propagate to the caller.
+ * @return Arcb_Result error code to propagate to the caller.
  */
-using AnalisysError = std::function<Arcana_Result (const std::string& ctx, const Support::SemanticOutput&, const Grammar::Match&)>;
+using AnalisysError = std::function<Arcb_Result (const std::string& ctx, const Support::SemanticOutput&, const Grammar::Match&)>;
 
 /**
  * @brief Callback invoked on post-processing errors.
@@ -81,9 +81,9 @@ using AnalisysError = std::function<Arcana_Result (const std::string& ctx, const
  * Post-processing refers to phases executed after syntactic/semantic build
  * (e.g. environment expansion, validation, mapping instantiation, etc.).
  *
- * @return Arcana_Result error code to propagate to the caller.
+ * @return Arcb_Result error code to propagate to the caller.
  */
-using PostProcError = std::function<Arcana_Result (const std::string& ctx, const std::string& err)>;
+using PostProcError = std::function<Arcb_Result (const std::string& ctx, const std::string& err)>;
 
 
 
@@ -98,7 +98,7 @@ using PostProcError = std::function<Arcana_Result (const std::string& ctx, const
 
 
 /**
- * @brief High-level parser that builds a Semantic::Enviroment from an Arcana script.
+ * @brief High-level parser that builds a Semantic::Enviroment from an Arcb script.
  *
  * Parser coordinates three stages:
  * 1) Lexing: Scan::Lexer produces tokens.
@@ -136,9 +136,9 @@ public:
      * - optionally perform post-processing on env
      *
      * @param env Output environment populated/updated by parsing.
-     * @return Arcana_Result status code.
+     * @return Arcb_Result status code.
      */
-    Arcana_Result Parse(Semantic::Enviroment& env);
+    Arcb_Result Parse(Semantic::Enviroment& env);
 
 private:
     /// Lexer reference (external ownership).
@@ -157,10 +157,10 @@ private:
      * @param match Grammar match describing a variable assignment.
      * @return SemanticOutput describing success or semantic error.
      */
-    Arcana_Result Handle_VarAssign(Grammar::Match& match);
+    Arcb_Result Handle_VarAssign(Grammar::Match& match);
 
 
-    Arcana_Result Handle_VarJoin(Grammar::Match& match);
+    Arcb_Result Handle_VarJoin(Grammar::Match& match);
 
 
     /**
@@ -169,7 +169,7 @@ private:
      * @param match Grammar match describing an attribute statement.
      * @return SemanticOutput describing success or semantic error.
      */
-    Arcana_Result Handle_Attribute(Grammar::Match& match);
+    Arcb_Result Handle_Attribute(Grammar::Match& match);
 
     /**
      * @brief Handles Rule::TASK_DECL semantic action.
@@ -177,7 +177,7 @@ private:
      * @param match Grammar match describing a task declaration.
      * @return SemanticOutput describing success or semantic error.
      */
-    Arcana_Result Handle_TaskDecl(Grammar::Match& match);
+    Arcb_Result Handle_TaskDecl(Grammar::Match& match);
 
     /**
      * @brief Handles Rule::USING semantic action.
@@ -185,7 +185,7 @@ private:
      * @param match Grammar match describing a using statement.
      * @return SemanticOutput describing success or semantic error.
      */
-    Arcana_Result Handle_Using(Grammar::Match& match);
+    Arcb_Result Handle_Using(Grammar::Match& match);
 
     /**
      * @brief Handles Rule::MAPPING semantic action.
@@ -193,7 +193,7 @@ private:
      * @param match Grammar match describing a mapping statement.
      * @return SemanticOutput describing success or semantic error.
      */
-    Arcana_Result Handle_Mapping(Grammar::Match& match);
+    Arcb_Result Handle_Mapping(Grammar::Match& match);
 
     /**
      * @brief Handles Rule::ASSERT_MSG semantic action.
@@ -201,7 +201,7 @@ private:
      * @param match Grammar match describing an assert statement.
      * @return SemanticOutput describing success or semantic error.
      */
-    Arcana_Result Handle_Assert(Grammar::Match& match, bool actions);
+    Arcb_Result Handle_Assert(Grammar::Match& match, bool actions);
     
     /**
      * @brief Handles Rule::IMPORT by parsing a referenced script into a new environment.
@@ -211,9 +211,9 @@ private:
      *
      * @param match Grammar match describing the import statement.
      * @param new_env Output environment produced by parsing the imported script.
-     * @return Arcana_Result status code.
+     * @return Arcb_Result status code.
      */
-    Arcana_Result Handle_Import(Grammar::Match& match, Semantic::Enviroment& new_env);
+    Arcb_Result Handle_Import(Grammar::Match& match, Semantic::Enviroment& new_env);
 };
 
 
@@ -222,4 +222,4 @@ END_MODULE(Parsing)
 
 /** @} */
 
-#endif /* __ARCANA_PARSER__H__ */
+#endif /* __ARCB_PARSER__H__ */

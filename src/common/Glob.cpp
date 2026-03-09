@@ -3,7 +3,7 @@
 
 #include <algorithm>
 
-USE_MODULE(Arcana::Glob);
+USE_MODULE(Arcb::Glob);
 
 /**
  * @file Glob.cpp
@@ -1623,7 +1623,7 @@ static bool Instantiate(const Pattern&              to_pat,
  * @param opt Parsing options.
  * @return true on success, false on parse error.
  */
-bool Arcana::Glob::Parse(std::string_view input, Pattern& out, ParseError& err, const Options& opt) noexcept
+bool Arcb::Glob::Parse(std::string_view input, Pattern& out, ParseError& err, const Options& opt) noexcept
 {
     // RESET OUTPUT STRUCTURES
     out = Pattern{};
@@ -1666,7 +1666,7 @@ bool Arcana::Glob::Parse(std::string_view input, Pattern& out, ParseError& err, 
  * @param opt Expansion options.
  * @return true if expansion ran (start path exists), false if start path does not exist.
  */
-bool Arcana::Glob::Expand(const Pattern& pattern, const fs::path& base_dir, std::vector<std::string>& out, const ExpandOptions& opt) noexcept
+bool Arcb::Glob::Expand(const Pattern& pattern, const fs::path& base_dir, std::vector<std::string>& out, const ExpandOptions& opt) noexcept
 {
     std::error_code ec;
 
@@ -1723,7 +1723,7 @@ bool Arcana::Glob::Expand(const Pattern& pattern, const fs::path& base_dir, std:
  * @param err_map Mapping error (capture/instantiate).
  * @return true on success, false on parse or mapping failure.
  */
-bool Arcana::Glob:: MapGlobToGlob(std::vector<std::string>  from_glob,
+bool Arcb::Glob:: MapGlobToGlob(std::vector<std::string>  from_glob,
                     std::string_view  to_glob,
                     std::vector<std::string> src_list,
                     std::vector<std::string>&       out_list,
@@ -1756,7 +1756,7 @@ bool Arcana::Glob:: MapGlobToGlob(std::vector<std::string>  from_glob,
         // MAP EACH SOURCE PATH THROUGH CAPTURE + INSTANTIATE
         for (auto it = src_list.begin(); it != src_list.end();)
         {
-            std::vector<Arcana::Glob::Capture> caps;
+            std::vector<Arcb::Glob::Capture> caps;
             if (!MatchCapture(from_pat, *it, caps))
             {
                 if (i == from_glob.size() - 1)

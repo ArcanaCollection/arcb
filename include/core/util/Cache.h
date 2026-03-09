@@ -1,11 +1,11 @@
-#ifndef __ARCANA_CACHE_H__
-#define __ARCANA_CACHE_H__
+#ifndef __ARCB_CACHE_H__
+#define __ARCB_CACHE_H__
 
 /**
  * @defgroup Cache Cache Management
  * @brief Input and script caching facilities.
  *
- * This module provides caching services used by Arcana to:
+ * This module provides caching services used by Arcb to:
  * - track input file changes
  * - manage profile-dependent cache invalidation
  * - persist generated scripts
@@ -33,7 +33,7 @@
 
 
 BEGIN_MODULE(Cache)
-USE_MODULE(Arcana);
+USE_MODULE(Arcb);
 
 
 
@@ -350,4 +350,4 @@ END_MODULE(Cache)
 
 
 
-#endif /* __ARCANA_CACHE_H__ */
+#endif /* __ARCB_CACHE_H__ */

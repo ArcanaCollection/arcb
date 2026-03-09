@@ -8,7 +8,7 @@
 #include <fstream>
 #include <functional>
 
-USE_MODULE(Arcana::Cache);
+USE_MODULE(Arcb::Cache);
 
 #define _P(_path) (fs::path(_path))
 
@@ -573,7 +573,7 @@ std::string Cache::MD5_bin(const std::string& data) noexcept
  */
 Manager::Manager()
     :
-    _cache_folder(".arcana"),
+    _cache_folder(".arcb"),
     _script_path(_P(_cache_folder) / _P("script")),
     _binary(_P(_cache_folder)),
     _store_idx(0),

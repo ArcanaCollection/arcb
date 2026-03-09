@@ -16,7 +16,7 @@ LDFLAGS  ?=
 # =========================
 BUILDDIR := build
 BINDIR   := $(BUILDDIR)/bin
-TARGET   := $(BINDIR)/arcana
+TARGET   := $(BINDIR)/arcb
 
 # =========================
 # Sources
@@ -72,7 +72,7 @@ ifeq ($(OS),Windows_NT)
             copy /Y "$(call winpath,$(1))" "$(call winpath,$(2))" >NUL
         endef
 
-        PREFIX ?= C:\Program Files\Arcana
+        PREFIX ?= C:\Program Files\arcb
         BINDST := $(PREFIX)\bin
         SEP    := \
 		
@@ -152,10 +152,10 @@ endif
 install: all
 ifeq ($(OS),Windows_NT)
 	@$(call MKDIR_P,$(BINDST))
-	@$(call CP,$(TARGET),$(BINDST)$(SEP)arcana$(EXEEXT))
+	@$(call CP,$(TARGET),$(BINDST)$(SEP)arcb$(EXEEXT))
 else
 	@install -d "$(BINDST)"
-	@install -m 0755 "$(TARGET)" "$(BINDST)/arcana"
+	@install -m 0755 "$(TARGET)" "$(BINDST)/arcb"
 endif
 
 clean:

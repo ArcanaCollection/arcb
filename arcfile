@@ -10,12 +10,12 @@ using threads 12;
 SRCDIR    = src
 BUILDDIR  = arcbuild
 
-TOOL      = arcana
-TARGET    = arc::BUILDDIR/arc::TOOL
+TOOL      = arcb
+TARGET    = arcb::BUILDDIR/arcb::TOOL
 
 @glob
-SOURCES   = arc::SRCDIR/**/*.cpp
-OBJECTS   = arc::BUILDDIR/**/*.o
+SOURCES   = arcb::SRCDIR/**/*.cpp
+OBJECTS   = arcb::BUILDDIR/**/*.o
 
 INCLUDES  = -Iinclude/common 
 INCLUDES += -Iinclude/core
@@ -30,96 +30,96 @@ PYTHON    = python3
 
 map SOURCES -> OBJECTS;
 
-assert "arc::__os__"   eq "linux"         -> Error Death;
-assert "arc::COMPILER" in "arc::__path__" -> "arc::COMPILER is required for this project";
-assert "arc::PYTHON"   in "arc::__path__" -> "arc::PYTHON is required for this project";
-assert "arc::ECHO"     in "arc::__path__" -> "arc::ECHO is required for this project";
+assert "arcb::__os__"   eq "linux"         -> Error Death;
+assert "arcb::COMPILER" in "arcb::__path__" -> "arcb::COMPILER is required for this project";
+assert "arcb::PYTHON"   in "arcb::__path__" -> "arcb::PYTHON is required for this project";
+assert "arcb::ECHO"     in "arcb::__path__" -> "arcb::ECHO is required for this project";
 
 ###########################
 # PRIVATE TASKS
 ###########################
 
-@engine raw arc::ECHO
+@engine raw arcb::ECHO
 task Error()
 {
-This project can only be build under linux, arc::__os__ not admitted
+This project can only be build under linux, arcb::__os__ not admitted
 }
 
 
 @death
-@engine raw arc::ECHO
+@engine raw arcb::ECHO
 task Death()
 {
 Bye!
 }
 
 
-@cache track arc::SOURCES.list()  
+@cache track arcb::SOURCES.list()  
 task MakeFolders() 
 {
-    cd arc::SRCDIR
-    find . -type d -exec mkdir -p "../arc::BUILDDIR"/{} \;
+    cd arcb::SRCDIR
+    find . -type d -exec mkdir -p "../arcb::BUILDDIR"/{} \;
 }
 
 @pub
-@engine file .py arc::PYTHON
+@engine file .py arcb::PYTHON
 task Message() 
 {
 print('+-----------------------------------------------------------------------+')
-print('Executing arc::__main__ for arc::TOOL in arc::__profile__ mode!')
+print('Executing arcb::__main__ for arcb::TOOL in arcb::__profile__ mode!')
 print('+-----------------------------------------------------------------------+')
 print('SYMBOLS')
-print('main       : arc::__main__')
-print('root       : arc::__root__')
-print('version    : arc::__version__')
-print('codename   : arc::__release__')
-print('profile    : arc::__profile__')
-print('threads    : arc::__threads__')
-print('max_threads: arc::__max_threads__')
-print('OS         : arc::__os__')
-print('arch       : arc::__arch__')
-print('path       : arc::__path__')
+print('main       : arcb::__main__')
+print('root       : arcb::__root__')
+print('version    : arcb::__version__')
+print('codename   : arcb::__release__')
+print('profile    : arcb::__profile__')
+print('threads    : arcb::__threads__')
+print('max_threads: arcb::__max_threads__')
+print('OS         : arcb::__os__')
+print('arch       : arcb::__arch__')
+print('path       : arcb::__path__')
 print('+-----------------------------------------------------------------------+')
 print('VARIABLES')
-print('BUILDDIR   : arc::BUILDDIR')
-print('SRCDIR     : arc::SRCDIR')
-print('TOOL       : arc::TOOL')
-print('TARGET     : arc::TARGET')
-print('SOURCES    : arc::SOURCES.list()')
-print('OBJECTS    : arc::OBJECTS.list()')
-print('INCLUDES   : arc::INCLUDES.list()')
-print('ECHO       : arc::ECHO')
-print('RM         : arc::RM')
-print('PYTHON     : arc::PYTHON')
-print('COMPILER   : arc::COMPILER')
-print('FLAGS      : arc::FLAGS')
-print('LDFLAGS    : arc::LDFLAGS')
+print('BUILDDIR   : arcb::BUILDDIR')
+print('SRCDIR     : arcb::SRCDIR')
+print('TOOL       : arcb::TOOL')
+print('TARGET     : arcb::TARGET')
+print('SOURCES    : arcb::SOURCES.list()')
+print('OBJECTS    : arcb::OBJECTS.list()')
+print('INCLUDES   : arcb::INCLUDES.list()')
+print('ECHO       : arcb::ECHO')
+print('RM         : arcb::RM')
+print('PYTHON     : arcb::PYTHON')
+print('COMPILER   : arcb::COMPILER')
+print('FLAGS      : arcb::FLAGS')
+print('LDFLAGS    : arcb::LDFLAGS')
 print('+-----------------------------------------------------------------------+')
 print('STATISTICS')
-print('# of SOURCES      : arc::SOURCES.size()')
-print('# of OBJECTS      : arc::OBJECTS.size()')
-print('# of INCLDIR      : arc::INCLUDES.size()')
-print('LDFLAGS emptiness : arc::LDFLAGS.empty()')
+print('# of SOURCES      : arcb::SOURCES.size()')
+print('# of OBJECTS      : arcb::OBJECTS.size()')
+print('# of INCLDIR      : arcb::INCLUDES.size()')
+print('LDFLAGS emptiness : arcb::LDFLAGS.empty()')
 print('+-----------------------------------------------------------------------+')
 print()
 }
 
 
 @echo
-@cache    track arc::SOURCES.list()  
+@cache    track arcb::SOURCES.list()  
 @requires MakeFolders
 @threading
 task Compile() 
 {
-arc::COMPILER arc::FLAGS arc::INCLUDES.inline() -c arc::SOURCES.list() -o arc::OBJECTS.list()
+arcb::COMPILER arcb::FLAGS arcb::INCLUDES.inline() -c arcb::SOURCES.list() -o arcb::OBJECTS.list()
 }
 
 
 @echo
-@cache store arc::SOURCES.list()  
+@cache store arcb::SOURCES.list()  
 task Link()
 {
-arc::COMPILER arc::LDFLAGS arc::FLAGS arc::OBJECTS.inline() -o arc::TARGET
+arcb::COMPILER arcb::LDFLAGS arcb::FLAGS arcb::OBJECTS.inline() -o arcb::TARGET
 }
 
 
@@ -130,10 +130,10 @@ arc::COMPILER arc::LDFLAGS arc::FLAGS arc::OBJECTS.inline() -o arc::TARGET
 
 @pub
 @then  MakeFolders
-@cache untrack arc::SOURCES.list() 
+@cache untrack arcb::SOURCES.list() 
 task Clean() 
 {
-    rm -rf arc::BUILDDIR
+    rm -rf arcb::BUILDDIR
 }
 
 
@@ -152,14 +152,14 @@ task Rebuild() {}
 @requires Clean Build
 task Install()
 {
-    sudo cp arc::TARGET /usr/bin/  
+    sudo cp arcb::TARGET /usr/bin/  
 }
 
 
 @pub
 task Uninstall()
 {
-    sudo rm /usr/bin/arc::TOOL   
+    sudo rm /usr/bin/arcb::TOOL   
 }
 
 

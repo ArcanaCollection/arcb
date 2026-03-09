@@ -5,7 +5,7 @@
 #include <string_view>
 #include <unordered_map>
 
-USE_MODULE(Arcana::Jobs);
+USE_MODULE(Arcb::Jobs);
 
 
 
@@ -128,7 +128,7 @@ static void PruneUnchangedInstructions(Jobs::Job& job, const Semantic::Instructi
     }
     else if (task.cache.type == Semantic::InstructionTask::Cache::Type::UNTRACK)
     {
-        Arcana::Cache::Manager::Instance().ClearCache(task.cache.data);
+        Arcb::Cache::Manager::Instance().ClearCache(task.cache.data);
     }
     else
     {
@@ -321,7 +321,7 @@ static bool dfs_visit(const std::string&                name,
                       bool prunable = true) noexcept
 {
     // COLLECT CURRENT NODE INTO OUT VECTOR
-    auto collect_node = [&] (Arcana::Semantic::FTable::const_iterator& tit, bool pruning) noexcept -> void
+    auto collect_node = [&] (Arcb::Semantic::FTable::const_iterator& tit, bool pruning) noexcept -> void
     {
         const Semantic::InstructionTask& t = tit->second;
         const auto& result = FromInstruction(t, pruning);
@@ -436,9 +436,9 @@ void List::Insert(const std::optional<Job>& j)
  *
  * @param environment Semantic environment containing tables and expansions.
  * @param out Output job list.
- * @return ARCANA_RESULT__OK on success, otherwise a failure code.
+ * @return ARCB_RESULT__OK on success, otherwise a failure code.
  */
-Arcana_Result List::FromEnv(Semantic::Enviroment& environment, List& out, std::vector<std::string>& recovery) noexcept
+Arcb_Result List::FromEnv(Semantic::Enviroment& environment, List& out, std::vector<std::string>& recovery) noexcept
 {
     // BUILD GRAPH FROM FTABLE
     Graph graph = BuildGraph(environment.ftable);
@@ -453,7 +453,7 @@ Arcana_Result List::FromEnv(Semantic::Enviroment& environment, List& out, std::v
         if (!dfs_visit(task_name, environment.ftable, graph, mark, ordered, err, false))
         {
             ERR(err);
-            return Arcana_Result::ARCANA_RESULT__NOK;
+            return Arcb_Result::ARCB_RESULT__NOK;
         }
 
         // INSERT ORDERED JOBS
@@ -477,7 +477,7 @@ Arcana_Result List::FromEnv(Semantic::Enviroment& environment, List& out, std::v
         if (!dfs_visit(main_name, environment.ftable, graph, mark, ordered, err))
         {
             ERR(err);
-            return Arcana_Result::ARCANA_RESULT__NOK;
+            return Arcb_Result::ARCB_RESULT__NOK;
         }  
 
         // INSERT ORDERED JOBS
@@ -503,6 +503,6 @@ Arcana_Result List::FromEnv(Semantic::Enviroment& environment, List& out, std::v
         }
     }
 
-    return Arcana_Result::ARCANA_RESULT__OK;
+    return Arcb_Result::ARCB_RESULT__OK;
 }
  

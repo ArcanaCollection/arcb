@@ -1,5 +1,5 @@
-#ifndef __ARCANA_GRAMMAR__H__
-#define __ARCANA_GRAMMAR__H__
+#ifndef __ARCB_GRAMMAR__H__
+#define __ARCB_GRAMMAR__H__
 
 
 #include <map>
@@ -16,7 +16,7 @@
  * @file Grammar.h
  * @brief Token stream matching engine and grammar rule metadata.
  *
- * This header defines the runtime matcher used by Arcana to classify the
+ * This header defines the runtime matcher used by Arcb to classify the
  * incoming token stream into higher-level language constructs (rules).
  *
  * The grammar engine is intended to be fed one token at a time. It collects
@@ -42,7 +42,7 @@
  * @brief Token stream matching engine and grammar rule metadata.
  *
  * The Grammar module consumes tokens produced by the scanner and recognizes
- * Arcana language constructs. Each recognized construct is represented by
+ * Arcb language constructs. Each recognized construct is represented by
  * a Rule value and a list of positional captures (Index entries).
  *
  * Typical flow:
@@ -539,7 +539,7 @@ struct Match
 /**
  * @brief Runtime grammar matching engine.
  *
- * The engine consumes scanner tokens and attempts to recognize the Arcana grammar.
+ * The engine consumes scanner tokens and attempts to recognize the Arcb grammar.
  *
  * Expected usage:
  * - Create Engine once.
@@ -610,4 +610,4 @@ END_MODULE(Grammar)
 
 /** @} */
 
-#endif /* __ARCANA_GRAMMAR__H__ */
+#endif /* __ARCB_GRAMMAR__H__ */

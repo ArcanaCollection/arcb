@@ -1,5 +1,5 @@
-#ifndef __ARCANA_COMMON_H__
-#define __ARCANA_COMMON_H__
+#ifndef __ARCB_COMMON_H__
+#define __ARCB_COMMON_H__
 
 
 #include <string>
@@ -102,4 +102,4 @@ private:
 
 
 
-#endif /* __ARCANA_COMMON_H__ */
+#endif /* __ARCB_COMMON_H__ */

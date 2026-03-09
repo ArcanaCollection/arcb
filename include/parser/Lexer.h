@@ -1,5 +1,5 @@
-#ifndef __ARCANA_LEXER__H__
-#define __ARCANA_LEXER__H__
+#ifndef __ARCB_LEXER__H__
+#define __ARCB_LEXER__H__
 
 
 #include <set>
@@ -14,9 +14,9 @@
 
 /**
  * @file Lexer.h
- * @brief Scanner (lexer) for Arcana scripts.
+ * @brief Scanner (lexer) for Arcb scripts.
  *
- * This header defines the tokenization layer. The lexer consumes an Arcana script
+ * This header defines the tokenization layer. The lexer consumes an Arcb script
  * source and produces a stream of Token objects. Each Token records:
  * - token type (TokenType)
  * - matched lexeme (raw text)
@@ -28,7 +28,7 @@
 
 /**
  * @defgroup Scan Scanner / Lexer
- * @brief Tokenization utilities for Arcana scripts.
+ * @brief Tokenization utilities for Arcb scripts.
  *
  * The Scan module provides the lexical analysis stage:
  * - TokenType: token classification
@@ -198,7 +198,7 @@ struct Token
 
 
 /**
- * @brief Arcana script lexer (scanner).
+ * @brief Arcb script lexer (scanner).
  *
  * Lexer is a stateful token generator:
  * - it reads from an input stream (file_ / in_)
@@ -218,7 +218,7 @@ public:
     /**
      * @brief Constructs a lexer for the given script path.
      *
-     * @param arcscript Path to the Arcana script to be lexed.
+     * @param arcscript Path to the Arcb script to be lexed.
      *
      * @note The constructor stores arcscript as a reference (arcscript_).
      *       The passed string object must outlive this Lexer.
@@ -306,4 +306,4 @@ END_MODULE(Scan)
 
 /** @} */
 
-#endif /* __ARCANA_LEXER__H__ */
+#endif /* __ARCB_LEXER__H__ */

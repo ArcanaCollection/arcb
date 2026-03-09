@@ -1,11 +1,11 @@
-#ifndef __ARCANA_GLOB_H__
-#define __ARCANA_GLOB_H__
+#ifndef __ARCB_GLOB_H__
+#define __ARCB_GLOB_H__
 
 /**
  * @defgroup Glob Glob Pattern Engine
  * @brief Glob parsing, expansion and mapping utilities.
  *
- * This module implements a custom glob engine used by Arcana.
+ * This module implements a custom glob engine used by Arcb.
  *
  * Features:
  * - glob pattern parsing
@@ -372,4 +372,4 @@ END_MODULE(Glob)
 /** @} */
 
 
-#endif /* __ARCANA_GLOB_H__ */
+#endif /* __ARCB_GLOB_H__ */

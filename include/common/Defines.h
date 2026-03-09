@@ -1,5 +1,5 @@
-#ifndef __ARCANA_COMMON_DEFINES__H__
-#define __ARCANA_COMMON_DEFINES__H__
+#ifndef __ARCB_COMMON_DEFINES__H__
+#define __ARCB_COMMON_DEFINES__H__
 
 
 
@@ -35,9 +35,9 @@
 
 
 /**
- * @brief Name of the main Arcana module namespace.
+ * @brief Name of the main Arcb module namespace.
  */
-#define MAIN_MODULE Arcana
+#define MAIN_MODULE Arcb
 
 
 
@@ -45,7 +45,7 @@
  * @brief Begins a sub-module namespace inside the main module.
  *
  * Expands to a nested namespace declaration of the form:
- * `namespace Arcana::mod {`
+ * `namespace Arcb::mod {`
  *
  * @param mod Sub-module name.
  */
@@ -113,15 +113,15 @@
 
 
 /**
- * @brief Current Arcana version string.
+ * @brief Current Arcb version string.
  */
-#define __ARCANA__VERSION__                     "0.6.1"
+#define __ARCB__VERSION__                       "0.7.0"
 
 
 /**
- * @brief Current Arcana major release name.
+ * @brief Current Arcb major release name.
  */
-#define __ARCANA__RELEASE__                     "Lushy Lion"
+#define __ARCB__RELEASE__                       "Lushy Lion"
 
 
 
@@ -253,13 +253,13 @@
 
 
 /**
- * @brief Prints a formatted Arcana informational message to stdout.
+ * @brief Prints a formatted Arcb informational message to stdout.
  *
- * Prefixes the message with a colored "[ARCANA]" tag.
+ * Prefixes the message with a colored "[ARCB]" tag.
  *
  * @param msg Message to print.
  */
-#define ARC(msg)                              std::cout << "[" << ANSI_BGREEN << ANSI_DIM << "ARCANA" << ANSI_RESET "] " << msg << std::endl
+#define ARC(msg)                              std::cout << "[" << ANSI_BGREEN << ANSI_DIM << "ARCB" << ANSI_RESET "] " << msg << std::endl
 
 
 
@@ -334,16 +334,16 @@
 
 
 /**
- * @brief Result codes returned by Arcana core operations.
+ * @brief Result codes returned by Arcb core operations.
  *
  * This enum represents the generic success or failure status
- * of Arcana execution steps.
+ * of Arcb execution steps.
  */
-enum Arcana_Result : int32_t
+enum Arcb_Result : int32_t
 {
-    ARCANA_RESULT__OK          =  0,  ///< Operation completed successfully.
-    ARCANA_RESULT__OK_AND_EXIT =  1,  ///< Operation completed successfully, then exit.
-    ARCANA_RESULT__NOK         = -1,  ///< Operation failed.
+    ARCB_RESULT__OK          =  0,  ///< Operation completed successfully.
+    ARCB_RESULT__OK_AND_EXIT =  1,  ///< Operation completed successfully, then exit.
+    ARCB_RESULT__NOK         = -1,  ///< Operation failed.
 };
 
 
@@ -363,4 +363,4 @@ enum class Semantic_Result : int32_t
 
 
 
-#endif /* __ARCANA_COMMON_DEFINES__H__ */
+#endif /* __ARCB_COMMON_DEFINES__H__ */

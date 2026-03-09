@@ -1,5 +1,5 @@
-#ifndef __ARCANA_UTIL_SUPPORT__H__
-#define __ARCANA_UTIL_SUPPORT__H__
+#ifndef __ARCB_UTIL_SUPPORT__H__
+#define __ARCB_UTIL_SUPPORT__H__
 
 
 #include <map>
@@ -29,7 +29,7 @@
 
 /**
  * @file Support.h
- * @brief Utility helpers used across Arcana.
+ * @brief Utility helpers used across Arcb.
  *
  * This header provides common utilities used across the scanner, grammar,
  * semantic and runtime layers, including:
@@ -45,7 +45,7 @@
 
 /**
  * @defgroup Support Support Utilities
- * @brief Shared helper utilities for Arcana subsystems.
+ * @brief Shared helper utilities for Arcb subsystems.
  */
 
 /**
@@ -190,7 +190,7 @@ using UniqueNonTerminal = std::set<Terminal>;
 
 END_MODULE(Grammar)
 
-using Point             = const Arcana::Grammar::Index*;
+using Point             = const Arcb::Grammar::Index*;
 using Input             = std::string&;
 using Lexeme            = std::string;
 using Statement         = std::vector<std::string>;
@@ -294,14 +294,14 @@ struct SplitResult
 //                                                                                                                                                                                                        
 
 #define NO_CTX                                      std::string{}
-#define Raise_Error(ctx, msg)                       ([&] () -> Arcana_Result { if (!ctx.empty()) ERR(ctx); MSG(msg);                                                                              return Arcana_Result::ARCANA_RESULT__NOK; }())
-#define Raise_Error_With_Hint(ctx, msg, hint)       ([&] () -> Arcana_Result { if (!ctx.empty()) ERR(ctx); MSG(msg); if (auto h = hint; !h.empty()) MSG("Did you mean " << TOKEN_CYAN(h) << "?"); return Arcana_Result::ARCANA_RESULT__NOK; }())
-#define Raise_Expansion_Error(msg)                  ([&] () -> Arcana_Result { error.clear(); error << msg;                                                                                       return Arcana_Result::ARCANA_RESULT__NOK; }())
-#define Raise_Expansion_Error_With_Hint(msg, hint)  ([&] () -> Arcana_Result { error.clear(); error << msg << std::endl << "Did you mean " << TOKEN_CYAN(hint) << "?";                            return Arcana_Result::ARCANA_RESULT__NOK; }())
+#define Raise_Error(ctx, msg)                       ([&] () -> Arcb_Result { if (!ctx.empty()) ERR(ctx); MSG(msg);                                                                              return Arcb_Result::ARCB_RESULT__NOK; }())
+#define Raise_Error_With_Hint(ctx, msg, hint)       ([&] () -> Arcb_Result { if (!ctx.empty()) ERR(ctx); MSG(msg); if (auto h = hint; !h.empty()) MSG("Did you mean " << TOKEN_CYAN(h) << "?"); return Arcb_Result::ARCB_RESULT__NOK; }())
+#define Raise_Expansion_Error(msg)                  ([&] () -> Arcb_Result { error.clear(); error << msg;                                                                                       return Arcb_Result::ARCB_RESULT__NOK; }())
+#define Raise_Expansion_Error_With_Hint(msg, hint)  ([&] () -> Arcb_Result { error.clear(); error << msg << std::endl << "Did you mean " << TOKEN_CYAN(hint) << "?";                            return Arcb_Result::ARCB_RESULT__NOK; }())
  
 
 
-Arcana_Result Parser_Error(const std::string& ctx, const Grammar::Match& match, Scan::Lexer& lexer);
+Arcb_Result Parser_Error(const std::string& ctx, const Grammar::Match& match, Scan::Lexer& lexer);
 
 
 
@@ -311,9 +311,9 @@ Arcana_Result Parser_Error(const std::string& ctx, const Grammar::Match& match, 
  * @param argc Argument count.
  * @param argv Argument vector.
  * @param args Argument data structure.
- * @return ARCANA_RESULT__OK on success, otherwise a failure code.
+ * @return ARCB_RESULT__OK on success, otherwise a failure code.
  */
-Arcana_Result ParseArgs(int argc, char** argv, Support::Arguments &args);
+Arcb_Result ParseArgs(int argc, char** argv, Support::Arguments &args);
 
 
 
@@ -322,9 +322,9 @@ Arcana_Result ParseArgs(int argc, char** argv, Support::Arguments &args);
  * @brief Handle command-line arguments pre parsing.
  *
  * @param args Argument data structure.
- * @return ARCANA_RESULT__OK on success, otherwise a failure code.
+ * @return ARCB_RESULT__OK on success, otherwise a failure code.
  */
-Arcana_Result HandleArgsPreParse(const Arguments &args);
+Arcb_Result HandleArgsPreParse(const Arguments &args);
 
 
 
@@ -332,9 +332,9 @@ Arcana_Result HandleArgsPreParse(const Arguments &args);
  * @brief Handle command-line arguments post parsing.
  *
  * @param args Argument data structure.
- * @return ARCANA_RESULT__OK on success, otherwise a failure code.
+ * @return ARCB_RESULT__OK on success, otherwise a failure code.
  */
-Arcana_Result HandleArgsPostParse(const Arguments &args, Semantic::Enviroment& env, Jobs::List& list);
+Arcb_Result HandleArgsPostParse(const Arguments &args, Semantic::Enviroment& env, Jobs::List& list);
 
 
 
@@ -530,4 +530,4 @@ END_MODULE(Support)
 
 /** @} */
 
-#endif /* __ARCANA_UTIL_SUPPORT__H__ */
+#endif /* __ARCB_UTIL_SUPPORT__H__ */

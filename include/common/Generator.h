@@ -1,5 +1,5 @@
-#ifndef __ARCANA_GENERATOR_H__
-#define __ARCANA_GENERATOR_H__
+#ifndef __ARCB_GENERATOR_H__
+#define __ARCB_GENERATOR_H__
 
 
 #include "Defines.h"
@@ -13,9 +13,9 @@ BEGIN_MODULE(Generator)
 
 
 /**
- * @brief Default Arcana project template.
+ * @brief Default Arcb project template.
  *
- * This template represents the initial Arcana build file generated
+ * This template represents the initial Arcb build file generated
  * when creating a new project. It defines:
  * - default profiles
  * - engine and threading configuration
@@ -25,16 +25,17 @@ BEGIN_MODULE(Generator)
  *
  * The template is emitted verbatim either to stdout or to a file.
  */
-static const char* ARCANA_TEMPLATE = R"TEMPLATE(
-#!/usr/bin/arcana
+static const char* ARCB_TEMPLATE = R"TEMPLATE(
+#!/usr/bin/arcb
 
 using profiles Debug Release;
-using default engine /bin/bash;
+using engine file .sh /bin/bash;
 using threads 1;
 
 @profile Debug;   FLAGS = -Wall -g3 -O0
 @profile Release; FLAGS = -Wall -g0 -O2
 
+ECHO     = echo
 COMPILER = gcc
 INCLUDES = -Iincludes
 SRCDIR   = src
@@ -42,30 +43,38 @@ OBJDIR   = src
 TARGET   = app
 
 @glob 
-SOURCES  = {arc:SRCDIR}/*.c
-OBJECTS  = {arc:OBJDIR}/*.o
+SOURCES  = arcb::SRCDIR/*.c
+OBJECTS  = arcb::OBJDIR/*.o
 
 map SOURCES -> OBJECTS;
 
-assert "{arc:__os__}" eq "linux" -> "This project can only be build under linux, {arc:__os__} not admitted";
+assert "arcb::__os__"   eq "linux"          -> "This project can only be build under linux, arcb::__os__ not admitted";
+assert "arcb::ECHO"     in "arcb::__path__" -> "arcb::ECHO is required for this project";
+assert "arcb::COMPILER" in "arcb::__path__" -> Death;
 
 ###########################
 # PRIVATE TASKS
 ###########################
 
+@death
+@engine raw arcb::ECHO
+task Death()
+{
+Error Bye! :P
+}
 
 @echo
-@cache track {arc:list:SOURCES} 
-@multithread
+@cache track arcb::SOURCES.list()
+@threading
 task Compile() 
 {
-{arc:COMPILER} {arc:FLAGS} {arc:INCLUDES} -c {arc:list:SOURCES} -o {arc:list:OBJECTS}
+arcb::COMPILER arcb::FLAGS arcb::INCLUDES -c arcb::SOURCES.list() -o arcb::OBJECTS.list()
 }
     
-@cache store {arc:list:SOURCES}  
+@cache store arcb::SOURCES.list() 
 task Link()
 {        
-{arc:COMPILER} {arc:FLAGS} {arc:inline:OBJECTS} -o {arc:TARGET}
+arcb::COMPILER arcb::FLAGS arcb::OBJECTS.inline() -o arcb::TARGET
 }
 
 ###########################
@@ -73,10 +82,10 @@ task Link()
 ###########################
 
 @pub
-@cache untrack {arc:list:SOURCES}
+@cache untrack arcb::SOURCES.list()
 task Clean() 
 { 
-rm -rf {arc:BUILDDIR}
+rm -rf arcb::BUILDDIR
 }
 
 @pub
@@ -99,9 +108,9 @@ task Install()
 
 
 /**
- * @brief Generates an Arcana project template.
+ * @brief Generates an Arcb project template.
  *
- * Writes the default Arcana template either to a file or to stdout.
+ * Writes the default Arcb template either to a file or to stdout.
  *
  * If the output string is empty, the default filename "arcfile" is used.
  * If the output string equals "stdout", the template is printed to stdout
@@ -127,7 +136,7 @@ inline bool Generate_Template(std::string& output)
     
     if (output.compare("stdout") == 0)
     {
-        MSG(ARCANA_TEMPLATE);
+        MSG(ARCB_TEMPLATE);
         return true;
     }
     
@@ -150,7 +159,7 @@ inline bool Generate_Template(std::string& output)
         return false;
     }
 
-    out << ARCANA_TEMPLATE;
+    out << ARCB_TEMPLATE;
     return out.good();
 }
 
@@ -161,4 +170,4 @@ END_MODULE(Generator)
 
 
 
-#endif /* __ARCANA_GENERATOR_H__ */
+#endif /* __ARCB_GENERATOR_H__ */

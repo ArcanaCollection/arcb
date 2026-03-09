@@ -15,15 +15,15 @@
 #include <filesystem>
 #include <unordered_map>
 
-USE_MODULE(Arcana::Semantic);
+USE_MODULE(Arcb::Semantic);
 
 namespace fs = std::filesystem;
 
 
-using AttributeMap = Arcana::Support::AbstractKeywordMap<Attr::Type>;
-using UsingMap     = Arcana::Support::AbstractKeywordMap<Using::Rule>;
-using CacheMap     = Arcana::Support::AbstractKeywordMap<InstructionTask::Cache::Type>;
-using EngineMap    = Arcana::Support::AbstractKeywordMap<Executor::Type>;
+using AttributeMap = Arcb::Support::AbstractKeywordMap<Attr::Type>;
+using UsingMap     = Arcb::Support::AbstractKeywordMap<Using::Rule>;
+using CacheMap     = Arcb::Support::AbstractKeywordMap<InstructionTask::Cache::Type>;
+using EngineMap    = Arcb::Support::AbstractKeywordMap<Executor::Type>;
 
 
 
@@ -175,12 +175,12 @@ Engine::Engine()
  * @param prop Raw properties string (tokenized via split()).
  * @return SemanticOutput with status and optional hint.
  */
-Arcana_Result Engine::Collect_Attribute(const std::string& name, const std::string& prop)
+Arcb_Result Engine::Collect_Attribute(const std::string& name, const std::string& prop)
 {
     std::stringstream ss;
 
     Attr::Type       attr     = Attr::Type::ATTRIBUTE__UNKNOWN;
-    Attr::Properties property = Arcana::Support::split(prop);
+    Attr::Properties property = Arcb::Support::split(prop);
 
     // RESOLVE ATTRIBUTE NAME TO TYPE
     if (auto it = Known_Attributes.find(name); it != Known_Attributes.end())
@@ -301,7 +301,7 @@ Arcana_Result Engine::Collect_Attribute(const std::string& name, const std::stri
     new_attr.context = _context;
     _attr_pending.push_back(new_attr);
 
-    return Arcana_Result::ARCANA_RESULT__OK;
+    return Arcb_Result::ARCB_RESULT__OK;
 }
 
 
@@ -312,7 +312,7 @@ Arcana_Result Engine::Collect_Attribute(const std::string& name, const std::stri
  * @param val  Raw value.
  * @return SemanticOutput with status.
  */
-Arcana_Result Engine::Collect_Assignment(const std::string& name, const std::string& val, bool join)
+Arcb_Result Engine::Collect_Assignment(const std::string& name, const std::string& val, bool join)
 {
     std::stringstream  ss;
     InstructionAssign  assign { name, nullptr };
@@ -363,7 +363,7 @@ Arcana_Result Engine::Collect_Assignment(const std::string& name, const std::str
         }
     }
 
-    return Arcana_Result::ARCANA_RESULT__OK;
+    return Arcb_Result::ARCB_RESULT__OK;
 }
 
 
@@ -375,7 +375,7 @@ Arcana_Result Engine::Collect_Assignment(const std::string& name, const std::str
  * @param instrs Instruction lines.
  * @return SemanticOutput with status.
  */
-Arcana_Result Engine::Collect_Task(const std::string& name, const Task::Instrs& instrs)
+Arcb_Result Engine::Collect_Task(const std::string& name, const Task::Instrs& instrs)
 {
     std::stringstream ss;
 
@@ -447,7 +447,7 @@ Arcana_Result Engine::Collect_Task(const std::string& name, const Task::Instrs& 
         }
     }
 
-    return Arcana_Result::ARCANA_RESULT__OK;
+    return Arcb_Result::ARCB_RESULT__OK;
 }
 
 
@@ -458,7 +458,7 @@ Arcana_Result Engine::Collect_Task(const std::string& name, const Task::Instrs& 
  * @param opt  Directive option string.
  * @return SemanticOutput with status and optional hint.
  */
-Arcana_Result Engine::Collect_Using(const std::string& what, const std::string& opt)
+Arcb_Result Engine::Collect_Using(const std::string& what, const std::string& opt)
 {
     auto IsExtension = [&] (const std::string& s) -> bool
     {
@@ -468,7 +468,7 @@ Arcana_Result Engine::Collect_Using(const std::string& what, const std::string& 
 
 
     std::stringstream ss;
-    Attr::Properties  options = Arcana::Support::split(opt);
+    Attr::Properties  options = Arcb::Support::split(opt);
     Using::Rule       rule;
 
     UsingMap::const_iterator it;
@@ -635,7 +635,7 @@ Arcana_Result Engine::Collect_Using(const std::string& what, const std::string& 
         Core::update_symbol(Core::SymbolType::THREADS, std::to_string(max_threads));
     }
 
-    return Arcana_Result::ARCANA_RESULT__OK;
+    return Arcb_Result::ARCB_RESULT__OK;
 }
 
 
@@ -646,7 +646,7 @@ Arcana_Result Engine::Collect_Using(const std::string& what, const std::string& 
  * @param item_2 Destination variable name.
  * @return SemanticOutput with status/hint.
  */
-Arcana_Result Engine::Collect_Mapping(const std::string& item_1, const std::string& item_2)
+Arcb_Result Engine::Collect_Mapping(const std::string& item_1, const std::string& item_2)
 {
     std::stringstream ss;
 
@@ -684,7 +684,7 @@ Arcana_Result Engine::Collect_Mapping(const std::string& item_1, const std::stri
 
     it_item2->second.attributes.push_back(attr);
 
-    return Arcana_Result::ARCANA_RESULT__OK;
+    return Arcb_Result::ARCB_RESULT__OK;
 }
 
 
@@ -699,7 +699,7 @@ Arcana_Result Engine::Collect_Mapping(const std::string& item_1, const std::stri
  * @param reason Reason string.
  * @return SemanticOutput with status.
  */
-Arcana_Result Engine::Collect_Assert(std::size_t line,
+Arcb_Result Engine::Collect_Assert(std::size_t line,
                                      const std::string& stmt,
                                      const std::string& lvalue,
                                      const std::string& op,
@@ -718,7 +718,7 @@ Arcana_Result Engine::Collect_Assert(std::size_t line,
     if (actions)
     {
         acheck.type    = AssertCheck::Type::ACTIONS;
-        acheck.actions = Arcana::Support::split(reason);
+        acheck.actions = Arcb::Support::split(reason);
     }
     else
     {
@@ -744,7 +744,7 @@ Arcana_Result Engine::Collect_Assert(std::size_t line,
     acheck.context = _context;
     _env.atable.push_back(acheck);
 
-    return Arcana_Result::ARCANA_RESULT__OK;
+    return Arcb_Result::ARCB_RESULT__OK;
 }
 
 
@@ -756,9 +756,9 @@ Arcana_Result Engine::Collect_Assert(std::size_t line,
 /**
  * @brief Validate CLI arguments against the collected environment and apply overrides.
  * @param args Parsed CLI arguments.
- * @return ARCANA_RESULT__OK on success, ARCANA_RESULT__NOK on error.
+ * @return ARCB_RESULT__OK on success, ARCB_RESULT__NOK on error.
  */
-Arcana_Result Enviroment::CheckArgs(const Arcana::Support::Arguments& args) noexcept
+Arcb_Result Enviroment::CheckArgs(const Arcb::Support::Arguments& args) noexcept
 {
     // HANDLE PROFILE OVERRIDE
     if (args.profile.found)
@@ -779,7 +779,7 @@ Arcana_Result Enviroment::CheckArgs(const Arcana::Support::Arguments& args) noex
         // DEFAULT PROFILE SELECTION
         if (profile.profiles.empty())
         {
-            return Arcana_Result::ARCANA_RESULT__OK;
+            return Arcb_Result::ARCB_RESULT__OK;
         }
 
         profile.selected = profile.profiles[0];
@@ -854,7 +854,7 @@ Arcana_Result Enviroment::CheckArgs(const Arcana::Support::Arguments& args) noex
         }
     }
 
-    return Arcana_Result::ARCANA_RESULT__OK;
+    return Arcb_Result::ARCB_RESULT__OK;
 }
 
 
@@ -863,7 +863,7 @@ Arcana_Result Enviroment::CheckArgs(const Arcana::Support::Arguments& args) noex
  * @brief Resolve dependencies/then links and finalize engine defaults.
  * @return Empty optional on success, error string on failure.
  */
-Arcana_Result Enviroment::AlignEnviroment() noexcept
+Arcb_Result Enviroment::AlignEnviroment() noexcept
 {
     std::stringstream ss;
 
@@ -922,7 +922,7 @@ Arcana_Result Enviroment::AlignEnviroment() noexcept
         default_interpreter.is_default = true;
     }
 
-    return Arcana_Result::ARCANA_RESULT__OK;
+    return Arcb_Result::ARCB_RESULT__OK;
 }
 
 
@@ -931,7 +931,7 @@ Arcana_Result Enviroment::AlignEnviroment() noexcept
  * @brief Expand variables/internals, compute glob expansions, expand tasks and asserts.
  * @return Empty optional on success, error string on failure.
  */
-Arcana_Result Enviroment::Expand() noexcept
+Arcb_Result Enviroment::Expand() noexcept
 {
     auto IsExtension = [&] (const std::string& s) -> bool
     {
@@ -960,7 +960,7 @@ Arcana_Result Enviroment::Expand() noexcept
         for (auto& value : var.var_value)
         {
             // EXPAND TEXT TOKENS
-            if (auto err = ex.ExpandText(value, {}); err != Arcana_Result::ARCANA_RESULT__OK)
+            if (auto err = ex.ExpandText(value, {}); err != Arcb_Result::ARCB_RESULT__OK)
             {
                 return Raise_Error(var.context.str(), ex.Get_Error());
             }
@@ -980,7 +980,7 @@ Arcana_Result Enviroment::Expand() noexcept
                 );
             }
 
-            Arcana::Glob::Expand(pattern, ".", var.glob_expansion, opt);
+            Arcb::Glob::Expand(pattern, ".", var.glob_expansion, opt);
         }
     }
 
@@ -998,7 +998,7 @@ Arcana_Result Enviroment::Expand() noexcept
             auto& map_to   = stmt.get();
             auto& map_from = vtable[map_to.getProperties(Semantic::Attr::Type::MAP).at(0)];
     
-            if (!Arcana::Glob::MapGlobToGlob(map_from.var_value, map_to.var_value[0],
+            if (!Arcb::Glob::MapGlobToGlob(map_from.var_value, map_to.var_value[0],
                                                 map_from.glob_expansion, map_to.glob_expansion, e1, e2, m1))
             {
                 return Raise_Error(
@@ -1025,17 +1025,17 @@ Arcana_Result Enviroment::Expand() noexcept
             }
         }
 
-        if (auto err = ex.ExpandAssertSide(assert.lvalue, assert); err != Arcana_Result::ARCANA_RESULT__OK)
+        if (auto err = ex.ExpandAssertSide(assert.lvalue, assert); err != Arcb_Result::ARCB_RESULT__OK)
         {
             return Raise_Error(assert.context.str(), ex.Get_Error());
         }
 
-        if (auto err = ex.ExpandAssertSide(assert.raw_rvalue, assert, true); err != Arcana_Result::ARCANA_RESULT__OK)
+        if (auto err = ex.ExpandAssertSide(assert.raw_rvalue, assert, true); err != Arcb_Result::ARCB_RESULT__OK)
         {
             return Raise_Error(assert.context.str(), ex.Get_Error());
         }
 
-        if (auto err = ex.ExpandText(assert.reason, {}); err != Arcana_Result::ARCANA_RESULT__OK)
+        if (auto err = ex.ExpandText(assert.reason, {}); err != Arcb_Result::ARCB_RESULT__OK)
         {
             return Raise_Error(assert.context.str(), ex.Get_Error());
         }
@@ -1065,7 +1065,7 @@ Arcana_Result Enviroment::Expand() noexcept
             {
                 std::size_t old_size = task.cache.data.size();
 
-                if (auto err = ex.ExpandText(properties[i], {Expander::Algorithm::LIST}, &task.cache.data); err != Arcana_Result::ARCANA_RESULT__OK)
+                if (auto err = ex.ExpandText(properties[i], {Expander::Algorithm::LIST}, &task.cache.data); err != Arcb_Result::ARCB_RESULT__OK)
                 {
                     return Raise_Error(task.context.str(), ex.Get_Error());
                 }
@@ -1125,7 +1125,7 @@ Arcana_Result Enviroment::Expand() noexcept
                 index               = 2;
             }
 
-            if (auto err = ex.ExpandText(task.engine.ext, {}); err != Arcana_Result::ARCANA_RESULT__OK)
+            if (auto err = ex.ExpandText(task.engine.ext, {}); err != Arcb_Result::ARCB_RESULT__OK)
             {
                 return Raise_Error(task.context.str(), ex.Get_Error());
             }
@@ -1138,7 +1138,7 @@ Arcana_Result Enviroment::Expand() noexcept
                 );
             }
 
-            if (auto err = ex.ExpandText(task.engine.command, {}); err != Arcana_Result::ARCANA_RESULT__OK)
+            if (auto err = ex.ExpandText(task.engine.command, {}); err != Arcb_Result::ARCB_RESULT__OK)
             {
                 return Raise_Error(task.context.str(), ex.Get_Error());
             }
@@ -1155,7 +1155,7 @@ Arcana_Result Enviroment::Expand() noexcept
 
             for (uint32_t i = 0; i < task.engine.flags.size(); ++i)
             {
-                if (auto err = ex.ExpandText(task.engine.flags[i], {Expander::Algorithm::INLINE}); err != Arcana_Result::ARCANA_RESULT__OK)
+                if (auto err = ex.ExpandText(task.engine.flags[i], {Expander::Algorithm::INLINE}); err != Arcb_Result::ARCB_RESULT__OK)
                 {
                     return Raise_Error(task.context.str(), ex.Get_Error());
                 }
@@ -1182,7 +1182,7 @@ Arcana_Result Enviroment::Expand() noexcept
                 Expander::Algorithm::LIST,
                 Expander::Algorithm::SIZE,
                 Expander::Algorithm::EMPTY,
-            }, &expanded_instrs, used_algo); err != Arcana_Result::ARCANA_RESULT__OK)
+            }, &expanded_instrs, used_algo); err != Arcb_Result::ARCB_RESULT__OK)
             {
                 return Raise_Error(task.context.str(), ex.Get_Error());
             }
@@ -1196,7 +1196,7 @@ Arcana_Result Enviroment::Expand() noexcept
         task.task_instrs = expanded_instrs;
     }
     
-    return Arcana_Result::ARCANA_RESULT__OK;
+    return Arcb_Result::ARCB_RESULT__OK;
 }
 
 
@@ -1205,7 +1205,7 @@ Arcana_Result Enviroment::Expand() noexcept
  * @brief Evaluate all collected asserts after expansion.
  * @return Empty optional on success, error string on first failure.
  */
-Arcana_Result Enviroment::ExecuteAsserts(std::vector<std::string>& reco_cb) noexcept
+Arcb_Result Enviroment::ExecuteAsserts(std::vector<std::string>& reco_cb) noexcept
 {
     bool assert_failed = false;
     std::stringstream ss;
@@ -1282,7 +1282,7 @@ Arcana_Result Enviroment::ExecuteAsserts(std::vector<std::string>& reco_cb) noex
         }
     }
 
-    return Arcana_Result::ARCANA_RESULT__OK;
+    return Arcb_Result::ARCB_RESULT__OK;
 }
 
 
@@ -1298,11 +1298,11 @@ Arcana_Result Enviroment::ExecuteAsserts(std::vector<std::string>& reco_cb) noex
 
 
 /**
- * @brief Expand internal symbols `{arc:__...__}`.
+ * @brief Expand internal symbols `arcb::__...__`.
  * @param s String to expand in-place.
  * @return Empty optional on success, error string on failure.
  */
-Arcana_Result Enviroment::Expander::ExpandInternals(std::string& s) noexcept
+Arcb_Result Enviroment::Expander::ExpandInternals(std::string& s) noexcept
 {
     for (int depth = 0; depth < 256; ++depth)
     {
@@ -1310,7 +1310,7 @@ Arcana_Result Enviroment::Expander::ExpandInternals(std::string& s) noexcept
         std::smatch m;
         if (!std::regex_search(s, m, re_intern))
         {
-            return Arcana_Result::ARCANA_RESULT__OK;
+            return Arcb_Result::ARCB_RESULT__OK;
         }
 
         const std::string sym = m[1].str();
@@ -1339,7 +1339,7 @@ Arcana_Result Enviroment::Expander::ExpandInternals(std::string& s) noexcept
         }
         else
         {
-            return Raise_Expansion_Error("Internal symbol expansion failed for " << TOKEN_MAGENTA("arc::" << sym));
+            return Raise_Expansion_Error("Internal symbol expansion failed for " << TOKEN_MAGENTA("arcb:::" << sym));
         }
     }
 
@@ -1349,11 +1349,11 @@ Arcana_Result Enviroment::Expander::ExpandInternals(std::string& s) noexcept
 
 
 /**
- * @brief Expand variable references `{arc:NAME}` using env.vtable.
+ * @brief Expand variable references `arcb::NAME` using env.vtable.
  * @param s String to expand in-place.
  * @return Empty optional on success, error string on failure.
  */
-Arcana_Result Enviroment::Expander::ExpandArcAll(std::string& s, const std::vector<Algorithm>& allowed_algorithms,
+Arcb_Result Enviroment::Expander::ExpandArcAll(std::string& s, const std::vector<Algorithm>& allowed_algorithms,
                                                  std::vector<std::string>* list_exp, bool* used_algo) noexcept
 {
     struct ListExpansionItem
@@ -1374,7 +1374,7 @@ Arcana_Result Enviroment::Expander::ExpandArcAll(std::string& s, const std::vect
 
     bool list_expanded = false;
 
-    auto expand = [&] (std::string& src, uint32_t pos = 0) noexcept -> Arcana_Result
+    auto expand = [&] (std::string& src, uint32_t pos = 0) noexcept -> Arcb_Result
     {
         ssize_t span = 0;
         for (const auto& match : expanded.matches)
@@ -1397,14 +1397,14 @@ Arcana_Result Enviroment::Expander::ExpandArcAll(std::string& s, const std::vect
             span += content.length() - match.pattern_len;
         }
 
-        return Arcana_Result::ARCANA_RESULT__OK;
+        return Arcb_Result::ARCB_RESULT__OK;
     };
 
     auto validate_expansion_args = [&] (const std::string& src, 
                                         std::vector<std::string>* data, 
                                         const std::string& args, 
                                         size_t& l, 
-                                        size_t& r) noexcept -> Arcana_Result
+                                        size_t& r) noexcept -> Arcb_Result
     {
         const auto&              values = Support::split(args);
         const auto               size   = values.size();
@@ -1475,7 +1475,7 @@ Arcana_Result Enviroment::Expander::ExpandArcAll(std::string& s, const std::vect
                 );
         }
 
-        return Arcana_Result::ARCANA_RESULT__OK;
+        return Arcb_Result::ARCB_RESULT__OK;
         
     };
 
@@ -1562,7 +1562,7 @@ Arcana_Result Enviroment::Expander::ExpandArcAll(std::string& s, const std::vect
                     return Raise_Expansion_Error("Invalid algorithm " << TOKEN_MAGENTA(algorithm) << " for empty variable " << TOKEN_CYAN(name) << " in statement:\n" << TOKEN_LYELLOW(s));
                 }
 
-                if (auto err = validate_expansion_args(s, buffer, args, l, r); err != Arcana_Result::ARCANA_RESULT__OK)
+                if (auto err = validate_expansion_args(s, buffer, args, l, r); err != Arcb_Result::ARCB_RESULT__OK)
                 {
                     return err;
                 }
@@ -1659,7 +1659,7 @@ Arcana_Result Enviroment::Expander::ExpandArcAll(std::string& s, const std::vect
         for (uint32_t i = low_index; i < high_index && max_index_valid; ++i)
         {
             std::string src = s;
-            if (auto err = expand(src, i); err != Arcana_Result::ARCANA_RESULT__OK)
+            if (auto err = expand(src, i); err != Arcb_Result::ARCB_RESULT__OK)
             {
                 return err;
             }
@@ -1668,7 +1668,7 @@ Arcana_Result Enviroment::Expander::ExpandArcAll(std::string& s, const std::vect
     } 
     else
     {
-        if (auto err = expand(s); err != Arcana_Result::ARCANA_RESULT__OK)
+        if (auto err = expand(s); err != Arcb_Result::ARCB_RESULT__OK)
         {
             return err;
         }
@@ -1679,7 +1679,7 @@ Arcana_Result Enviroment::Expander::ExpandArcAll(std::string& s, const std::vect
         }
     }
 
-    return Arcana_Result::ARCANA_RESULT__OK;
+    return Arcb_Result::ARCB_RESULT__OK;
 }
 
  
@@ -1689,11 +1689,11 @@ Arcana_Result Enviroment::Expander::ExpandArcAll(std::string& s, const std::vect
  * @param s String to expand in-place.
  * @return Empty optional on success, error string on failure.
  */
-Arcana_Result Enviroment::Expander::ExpandText(std::string& s, const std::vector<Algorithm>& allowed_algorithms,
+Arcb_Result Enviroment::Expander::ExpandText(std::string& s, const std::vector<Algorithm>& allowed_algorithms,
                                                std::vector<std::string>* list_exp, bool* used_algo) noexcept
 {
     // EXPAND INTERNALS
-    if (auto err = ExpandInternals(s); err != Arcana_Result::ARCANA_RESULT__OK)
+    if (auto err = ExpandInternals(s); err != Arcb_Result::ARCB_RESULT__OK)
     {
         return err;
     }
@@ -1712,12 +1712,12 @@ Arcana_Result Enviroment::Expander::ExpandText(std::string& s, const std::vector
     }
 
     // EXPAND VARIABLES
-    if (auto err = ExpandArcAll(s, allowed_algorithms, list_exp, used_algo);  err != Arcana_Result::ARCANA_RESULT__OK)
+    if (auto err = ExpandArcAll(s, allowed_algorithms, list_exp, used_algo);  err != Arcb_Result::ARCB_RESULT__OK)
     {
         return err;
     }
 
-    return Arcana_Result::ARCANA_RESULT__OK;
+    return Arcb_Result::ARCB_RESULT__OK;
 }
 
 
@@ -1728,13 +1728,13 @@ Arcana_Result Enviroment::Expander::ExpandText(std::string& s, const std::vector
  * @param assert Assert object to update.
  * @return Empty optional on success, error string on failure.
  */
-Arcana_Result Enviroment::Expander::ExpandAssertSide(std::string& stmt, AssertCheck& assert, bool rvalue) noexcept
+Arcb_Result Enviroment::Expander::ExpandAssertSide(std::string& stmt, AssertCheck& assert, bool rvalue) noexcept
 {
     std::vector<std::string> paths;
     bool                     used_algo[2] = { false };
 
     // EXPAND TEXT TOKENS
-    if (auto err = ExpandText(stmt, {Algorithm::FILESYSTEM, Algorithm::LIST}, &paths, used_algo); err != Arcana_Result::ARCANA_RESULT__OK)
+    if (auto err = ExpandText(stmt, {Algorithm::FILESYSTEM, Algorithm::LIST}, &paths, used_algo); err != Arcb_Result::ARCB_RESULT__OK)
     {
         return err;
     }
@@ -1772,5 +1772,5 @@ Arcana_Result Enviroment::Expander::ExpandAssertSide(std::string& stmt, AssertCh
 
     }
 
-    return Arcana_Result::ARCANA_RESULT__OK;
+    return Arcb_Result::ARCB_RESULT__OK;
 }

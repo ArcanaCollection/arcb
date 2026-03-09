@@ -1,12 +1,12 @@
-#ifndef __ARCANA_JOBS_H__
-#define __ARCANA_JOBS_H__
+#ifndef __ARCB_JOBS_H__
+#define __ARCB_JOBS_H__
 
 
 /**
  * @defgroup Jobs Job Execution Model
  * @brief Job representation and execution planning.
  *
- * This module defines the job abstraction used by Arcana at runtime.
+ * This module defines the job abstraction used by Arcb at runtime.
  *
  * It is responsible for:
  * - representing executable jobs derived from semantic tasks
@@ -31,7 +31,7 @@
 
 
 BEGIN_MODULE(Jobs)
-USE_MODULE(Arcana);
+USE_MODULE(Arcb);
 
 
 
@@ -118,9 +118,9 @@ public:
      * @param[in]  environment Semantic environment.
      * @param[out] out Output job list.
      *
-    * @return ARCANA_RESULT__OK on success, otherwise a failure code.
+    * @return ARCB_RESULT__OK on success, otherwise a failure code.
      */
-    static Arcana_Result
+    static Arcb_Result
     FromEnv(Semantic::Enviroment& environment, List& out, std::vector<std::string>& recovery) noexcept;
 
     /**
@@ -150,4 +150,4 @@ END_MODULE(Jobs)
 /** @} */
 
 
-#endif /* __ARCANA_JOBS_H__ */
+#endif /* __ARCB_JOBS_H__ */

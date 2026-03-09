@@ -5,12 +5,12 @@
 
 #include <mutex>
 
-USE_MODULE(Arcana);
+USE_MODULE(Arcb);
 
 using SymbolMap = Support::AbstractKeywordMap<std::vector<std::string>>;
 
 /**
- * @brief Built-in symbol table used for `{arc:__...__}` expansions.
+ * @brief Built-in symbol table used for `arcb::__...__` expansions.
  *
  * Values are stored as strings and can be updated at runtime (e.g. profile selection, threads override).
  */
@@ -19,8 +19,8 @@ static SymbolMap builtin_symbols =
     { "__main__"       , {                                                     } },
     { "__root__"       , { std::filesystem::current_path().generic_string()    } },
     { "__path__"       , Support::GetPathEntries()                               },
-    { "__version__"    , { __ARCANA__VERSION__                                 } },
-    { "__release__"    , { __ARCANA__RELEASE__                                 } },
+    { "__version__"    , { __ARCB__VERSION__                                 } },
+    { "__release__"    , { __ARCB__RELEASE__                                 } },
     { "__profile__"    , {                                                     } },
     { "__threads__"    , {                                                     } },
     { "__max_threads__", { std::to_string(std::thread::hardware_concurrency()) } },
@@ -325,11 +325,11 @@ static Core::Result run_job(Jobs::Job& job, const Core::RunOptions& opt) noexcep
  *
  * @param jobs Job list to execute.
  * @param opt Execution options.
- * @return ARCANA_RESULT__OK on success, otherwise a failure code.
+ * @return ARCB_RESULT__OK on success, otherwise a failure code.
  */
-Arcana_Result Core::run_jobs(Jobs::List& jobs, const Core::RunOptions& opt) noexcept
+Arcb_Result Core::run_jobs(Jobs::List& jobs, const Core::RunOptions& opt) noexcept
 {
-    Arcana_Result result = Arcana_Result::ARCANA_RESULT__OK;
+    Arcb_Result result = Arcb_Result::ARCB_RESULT__OK;
     Stopwatch sw;
 
     // START TIMER
@@ -349,7 +349,7 @@ Arcana_Result Core::run_jobs(Jobs::List& jobs, const Core::RunOptions& opt) noex
         // STOP EARLY ON ERROR IF REQUESTED
         if (!r.ok && opt.stop_on_error)
         {
-            result = Arcana_Result::ARCANA_RESULT__NOK;
+            result = Arcb_Result::ARCB_RESULT__NOK;
             ERR("Task failed: " << ANSI_BRED <<  job.name << ANSI_RESET);
             break;
         }
@@ -358,13 +358,13 @@ Arcana_Result Core::run_jobs(Jobs::List& jobs, const Core::RunOptions& opt) noex
         {
             for (auto& file : job.cache.data)
             {
-                Arcana::Cache::Manager::Instance().Store(file);
+                Arcb::Cache::Manager::Instance().Store(file);
             }
         }
 
         if (job.death)
         {
-            result = Arcana_Result::ARCANA_RESULT__NOK;
+            result = Arcb_Result::ARCB_RESULT__NOK;
             ERR("Task failed: " << ANSI_BRED <<  jobs.main_job << ANSI_RESET );
             break;
         }
@@ -375,7 +375,7 @@ Arcana_Result Core::run_jobs(Jobs::List& jobs, const Core::RunOptions& opt) noex
     auto ms = sw.elapsed<>();
 
     // PRINT SUMMARY
-    if (result == Arcana_Result::ARCANA_RESULT__OK)
+    if (result == Arcb_Result::ARCB_RESULT__OK)
     {
         ARC("Action '" << jobs.main_job << "' done in " << Stopwatch::format(ms));
     }

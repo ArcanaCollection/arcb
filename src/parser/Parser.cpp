@@ -3,7 +3,7 @@
 
 #include <variant>
 
-USE_MODULE(Arcana::Parsing);
+USE_MODULE(Arcb::Parsing);
 
 
 
@@ -37,7 +37,7 @@ Parser::Parser(Scan::Lexer& l, Grammar::Engine& e)
 
 
 /**
- * @brief Parse an Arcana script and build the semantic environment.
+ * @brief Parse an Arcb script and build the semantic environment.
  *
  * The function:
  * - iterates tokens until EOF
@@ -46,13 +46,13 @@ Parser::Parser(Scan::Lexer& l, Grammar::Engine& e)
  * - supports nested parsing via `import`
  *
  * @param env Output semantic environment (copy of the internal engine env).
- * @return ARCANA_RESULT__OK on success, otherwise a failure code.
+ * @return ARCB_RESULT__OK on success, otherwise a failure code.
  */
-Arcana_Result Parser::Parse(Semantic::Enviroment& env)
+Arcb_Result Parser::Parse(Semantic::Enviroment& env)
 {
     Scan::Token    token;
     Grammar::Match match;
-    Arcana_Result  result;
+    Arcb_Result  result;
 
     // ITERATE TOKENS UNTIL ERROR OR EOF
     do
@@ -86,13 +86,13 @@ Arcana_Result Parser::Parse(Semantic::Enviroment& env)
             {
                 // PARSE IMPORTED FILE INTO A TEMP ENV
                 Semantic::Enviroment new_env;
-                Arcana_Result        res = Handle_Import(match, new_env);
+                Arcb_Result        res = Handle_Import(match, new_env);
 
                 // PROPAGATE ERROR
-                if (res != ARCANA_RESULT__OK) return res;
+                if (res != ARCB_RESULT__OK) return res;
             }
 
-            if (result != Arcana_Result::ARCANA_RESULT__OK) return result;
+            if (result != Arcb_Result::ARCB_RESULT__OK) return result;
         }
 
         // REPORT GRAMMAR ERRORS VIA CALLBACK
@@ -119,7 +119,7 @@ Arcana_Result Parser::Parse(Semantic::Enviroment& env)
  * @param match Grammar match for VARIABLE_ASSIGN.
  * @return SemanticOutput from `Collect_Assignment`.
  */
-Arcana_Result Parser::Handle_VarAssign(Grammar::Match& match)
+Arcb_Result Parser::Handle_VarAssign(Grammar::Match& match)
 {
     // EXTRACT MATCH POINTS
     Point p1 = match[_I(Grammar::VARIABLE_ASSIGN::VARNAME)];
@@ -143,7 +143,7 @@ Arcana_Result Parser::Handle_VarAssign(Grammar::Match& match)
 
 
 
-Arcana_Result Parser::Handle_VarJoin(Grammar::Match& match)
+Arcb_Result Parser::Handle_VarJoin(Grammar::Match& match)
 {
     // EXTRACT MATCH POINTS
     Point p1 = match[_I(Grammar::VARIABLE_JOIN::VARNAME)];
@@ -176,7 +176,7 @@ Arcana_Result Parser::Handle_VarJoin(Grammar::Match& match)
  * @param match Grammar match for ATTRIBUTE.
  * @return SemanticOutput from `Collect_Attribute`.
  */
-Arcana_Result Parser::Handle_Attribute(Grammar::Match& match)
+Arcb_Result Parser::Handle_Attribute(Grammar::Match& match)
 {
     // EXTRACT MATCH POINTS
     Point p1 = match[_I(Grammar::ATTRIBUTE::ATTRNAME)];
@@ -214,7 +214,7 @@ Arcana_Result Parser::Handle_Attribute(Grammar::Match& match)
  * @param match Grammar match for TASK_DECL.
  * @return SemanticOutput from `Collect_Task`.
  */
-Arcana_Result Parser::Handle_TaskDecl(Grammar::Match& match)
+Arcb_Result Parser::Handle_TaskDecl(Grammar::Match& match)
 {
     // PREPARE BODY CONTAINER
     Statement body;
@@ -310,9 +310,9 @@ Arcana_Result Parser::Handle_TaskDecl(Grammar::Match& match)
  *
  * @param match Grammar match for IMPORT.
  * @param new_env Output environment collected from the imported script.
- * @return ARCANA_RESULT__OK on success, otherwise a failure code.
+ * @return ARCB_RESULT__OK on success, otherwise a failure code.
  */
-Arcana_Result Parser::Handle_Import(Grammar::Match& match, Semantic::Enviroment& new_env)
+Arcb_Result Parser::Handle_Import(Grammar::Match& match, Semantic::Enviroment& new_env)
 {
     // EXTRACT IMPORT PATH
     Point  p1     = match[_I(Grammar::IMPORT::SCRIPT)];
@@ -333,11 +333,11 @@ Arcana_Result Parser::Handle_Import(Grammar::Match& match, Semantic::Enviroment&
 
         std::cerr << ss.str();
 
-        return Arcana_Result::ARCANA_RESULT__NOK;
+        return Arcb_Result::ARCB_RESULT__NOK;
     }
 
     // SPAWN IMPORT PARSER
-    Arcana_Result        result;
+    Arcb_Result        result;
     Scan::Lexer          lexer(script);
     Grammar::Engine      engine;
     Parsing::Parser      parser(lexer, engine);
@@ -345,7 +345,7 @@ Arcana_Result Parser::Handle_Import(Grammar::Match& match, Semantic::Enviroment&
     // PARSE IMPORT AND MERGE INTO CURRENT ENV ON SUCCESS
     result = parser.Parse(new_env);
 
-    if (result == Arcana_Result::ARCANA_RESULT__OK)
+    if (result == Arcb_Result::ARCB_RESULT__OK)
     {
         Semantic::EnvMerge(instr_engine.EnvRef(), new_env);
     }
@@ -365,7 +365,7 @@ Arcana_Result Parser::Handle_Import(Grammar::Match& match, Semantic::Enviroment&
  * @param match Grammar match for USING.
  * @return SemanticOutput from `Collect_Using`.
  */
-Arcana_Result Parser::Handle_Using(Grammar::Match& match)
+Arcb_Result Parser::Handle_Using(Grammar::Match& match)
 {
     // EXTRACT MATCH POINTS
     Point p1 = match[_I(Grammar::USING::WHAT)];
@@ -398,7 +398,7 @@ Arcana_Result Parser::Handle_Using(Grammar::Match& match)
  * @param match Grammar match for MAPPING.
  * @return SemanticOutput from `Collect_Mapping`.
  */
-Arcana_Result Parser::Handle_Mapping(Grammar::Match& match)
+Arcb_Result Parser::Handle_Mapping(Grammar::Match& match)
 {
     // EXTRACT MATCH POINTS
     Point p1 = match[_I(Grammar::MAPPING::ITEM_1)];
@@ -431,7 +431,7 @@ Arcana_Result Parser::Handle_Mapping(Grammar::Match& match)
  * @param match Grammar match for ASSERT_MSG.
  * @return SemanticOutput from `Collect_Assert`.
  */
-Arcana_Result Parser::Handle_Assert(Grammar::Match& match, bool actions)
+Arcb_Result Parser::Handle_Assert(Grammar::Match& match, bool actions)
 {
     // EXTRACT MATCH POINTS
     Point pStart = match[(actions) ? _I(Grammar::ASSERT_ACT::RESERVED2) : _I(Grammar::ASSERT_MSG::RESERVED2)];

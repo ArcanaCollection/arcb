@@ -1,8 +1,8 @@
 #include "Grammar.h"
 #include <algorithm>
 
-USE_MODULE(Arcana);
-USE_MODULE(Arcana::Grammar);
+USE_MODULE(Arcb);
+USE_MODULE(Arcb::Grammar);
 
 
 

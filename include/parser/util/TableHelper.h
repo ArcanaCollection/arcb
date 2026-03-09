@@ -1,5 +1,5 @@
-#ifndef __ARCANA_UTIL_TABLE_HELPER__H__
-#define __ARCANA_UTIL_TABLE_HELPER__H__
+#ifndef __ARCB_UTIL_TABLE_HELPER__H__
+#define __ARCB_UTIL_TABLE_HELPER__H__
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -37,7 +37,7 @@
  * @brief Table helpers for semantic attribute queries and profile/OS alignment.
  *
  * This header provides generic utilities to query and extract values from
- * map-like tables used across Arcana (e.g. vtables/ftables/ctables), with
+ * map-like tables used across Arcb (e.g. vtables/ftables/ctables), with
  * support for:
  * - semantic attribute filtering
  * - profile-aware key mangling lookup
@@ -46,10 +46,10 @@
 
 /**
  * @defgroup Table Table Utilities
- * @brief Generic helper utilities for Arcana table-like containers.
+ * @brief Generic helper utilities for Arcb table-like containers.
  *
  * Provides attribute-aware accessors and alignment helpers for map-like
- * containers used by Arcana semantic/runtime layers.
+ * containers used by Arcb semantic/runtime layers.
  */
 
 /**
@@ -87,7 +87,7 @@ BEGIN_MODULE(Table)
  * @brief Checks whether a mapped value exposes a given semantic attribute.
  *
  * This overload expects the mapped type to provide:
- * `bool hasAttribute(Arcana::Semantic::Attr::Type) const;`
+ * `bool hasAttribute(Arcb::Semantic::Attr::Type) const;`
  *
  * @tparam T Mapped type.
  * @param value Mapped value.
@@ -95,7 +95,7 @@ BEGIN_MODULE(Table)
  * @return true if the attribute is present.
  */
 template <typename T>
-inline static bool HasAttrOnMapped(const T& value, const Arcana::Semantic::Attr::Type attr)
+inline static bool HasAttrOnMapped(const T& value, const Arcb::Semantic::Attr::Type attr)
 {
     return value.hasAttribute(attr);
 }
@@ -111,7 +111,7 @@ inline static bool HasAttrOnMapped(const T& value, const Arcana::Semantic::Attr:
  * @return true if ptr is non-null and the attribute is present.
  */
 template <typename T>
-inline static bool HasAttrOnMapped(T* ptr, const Arcana::Semantic::Attr::Type attr)
+inline static bool HasAttrOnMapped(T* ptr, const Arcb::Semantic::Attr::Type attr)
 {
     return ptr && ptr->hasAttribute(attr);
 }
@@ -127,7 +127,7 @@ inline static bool HasAttrOnMapped(T* ptr, const Arcana::Semantic::Attr::Type at
  * @return true if ptr is non-null and the attribute is present.
  */
 template <typename T>
-inline static bool HasAttrOnMapped(const std::shared_ptr<T>& ptr, const Arcana::Semantic::Attr::Type attr)
+inline static bool HasAttrOnMapped(const std::shared_ptr<T>& ptr, const Arcb::Semantic::Attr::Type attr)
 {
     return ptr && ptr->hasAttribute(attr);
 }
@@ -143,7 +143,7 @@ inline static bool HasAttrOnMapped(const std::shared_ptr<T>& ptr, const Arcana::
  * @return true if ptr is non-null and the attribute is present.
  */
 template <typename T>
-inline static bool HasAttrOnMapped(const std::unique_ptr<T>& ptr, const Arcana::Semantic::Attr::Type attr)
+inline static bool HasAttrOnMapped(const std::unique_ptr<T>& ptr, const Arcb::Semantic::Attr::Type attr)
 {
     return ptr && ptr->hasAttribute(attr);
 }
@@ -174,7 +174,7 @@ inline static bool HasAttrOnMapped(const std::unique_ptr<T>& ptr, const Arcana::
  */
 template <typename TABLE>
 std::optional<std::reference_wrapper<typename TABLE::mapped_type>>
-GetValue(TABLE& table, const Arcana::Semantic::Attr::Type attr)
+GetValue(TABLE& table, const Arcb::Semantic::Attr::Type attr)
 {
     for (auto& [k, v] : table)
     {
@@ -199,7 +199,7 @@ GetValue(TABLE& table, const Arcana::Semantic::Attr::Type attr)
  */
 template <typename TABLE>
 std::optional<std::vector<std::reference_wrapper<typename TABLE::mapped_type>>>
-GetValues(TABLE& table, const Arcana::Semantic::Attr::Type attr)
+GetValues(TABLE& table, const Arcb::Semantic::Attr::Type attr)
 {
     std::vector<std::reference_wrapper<typename TABLE::mapped_type>> vec;
 
@@ -275,7 +275,7 @@ GetValue(TABLE& table, const typename TABLE::key_type& key, const std::vector<st
  */
 template <typename TABLE>
 std::optional<std::reference_wrapper<typename TABLE::mapped_type>>
-GetValue(TABLE& table, const typename TABLE::key_type& key, const std::vector<std::string>& profiles, const Arcana::Semantic::Attr::Type attr)
+GetValue(TABLE& table, const typename TABLE::key_type& key, const std::vector<std::string>& profiles, const Arcb::Semantic::Attr::Type attr)
 {
     auto it = table.find(key);
     if (it != table.end() && HasAttrOnMapped(it->second, attr))
@@ -347,7 +347,7 @@ GetValue(TABLE& table, const typename TABLE::key_type& key, const std::string& p
  */
 template <typename TABLE>
 std::optional<std::reference_wrapper<typename TABLE::mapped_type>>
-GetValue(TABLE& table, const typename TABLE::key_type& key, const std::string& profile, const Arcana::Semantic::Attr::Type attr)
+GetValue(TABLE& table, const typename TABLE::key_type& key, const std::string& profile, const Arcb::Semantic::Attr::Type attr)
 {
     auto it = table.find(key);
 
@@ -383,7 +383,7 @@ GetValue(TABLE& table, const typename TABLE::key_type& key, const std::string& p
  */
 template <typename TABLE>
 std::vector<std::reference_wrapper<typename TABLE::mapped_type>>
-GetValues(TABLE& table, const std::string& profile, const Arcana::Semantic::Attr::Type attr)
+GetValues(TABLE& table, const std::string& profile, const Arcb::Semantic::Attr::Type attr)
 {
     std::vector<std::reference_wrapper<typename TABLE::mapped_type>> vec;
 
@@ -416,7 +416,7 @@ GetValues(TABLE& table, const std::string& profile, const Arcana::Semantic::Attr
  */
 template <typename TABLE>
 std::vector<std::reference_wrapper<typename TABLE::mapped_type>>
-GetValues(TABLE& table, const std::vector<std::string>& profiles, const Arcana::Semantic::Attr::Type attr)
+GetValues(TABLE& table, const std::vector<std::string>& profiles, const Arcb::Semantic::Attr::Type attr)
 {
     std::vector<std::reference_wrapper<typename TABLE::mapped_type>> vec;
 
@@ -540,7 +540,7 @@ TakeValue(TABLE& table, const typename TABLE::key_type& key, const std::vector<s
  */
 template <typename TABLE>
 std::optional<typename TABLE::mapped_type>
-TakeValue(TABLE& table, const typename TABLE::key_type& key, const std::string& profile, const Arcana::Semantic::Attr::Type attr)
+TakeValue(TABLE& table, const typename TABLE::key_type& key, const std::string& profile, const Arcb::Semantic::Attr::Type attr)
 {
     auto it = table.find(key);
 
@@ -579,7 +579,7 @@ TakeValue(TABLE& table, const typename TABLE::key_type& key, const std::string& 
  */
 template <typename TABLE>
 std::optional<typename TABLE::mapped_type>
-TakeValue(TABLE& table, const typename TABLE::key_type& key, const std::vector<std::string>& profiles, const Arcana::Semantic::Attr::Type attr)
+TakeValue(TABLE& table, const typename TABLE::key_type& key, const std::vector<std::string>& profiles, const Arcb::Semantic::Attr::Type attr)
 {
     auto it = table.find(key);
 
@@ -620,7 +620,7 @@ TakeValue(TABLE& table, const typename TABLE::key_type& key, const std::vector<s
  */
 template <typename TABLE>
 std::vector<typename TABLE::mapped_type>
-TakeValues(TABLE& table, const std::string& profile, const Arcana::Semantic::Attr::Type attr)
+TakeValues(TABLE& table, const std::string& profile, const Arcb::Semantic::Attr::Type attr)
 {
     std::vector<typename TABLE::mapped_type> vec;
 
@@ -652,7 +652,7 @@ TakeValues(TABLE& table, const std::string& profile, const Arcana::Semantic::Att
  */
 template <typename TABLE>
 std::vector<typename TABLE::mapped_type>
-TakeValues(TABLE& table, const std::vector<std::string>& profiles, const Arcana::Semantic::Attr::Type attr)
+TakeValues(TABLE& table, const std::vector<std::string>& profiles, const Arcb::Semantic::Attr::Type attr)
 {
     std::vector<typename TABLE::mapped_type> vec;
 
@@ -733,7 +733,7 @@ AlignOnProfile(TABLE& table, const std::string& profile)
 
     for (const auto& [k, v] : table)
     {
-        if (HasAttrOnMapped(v, Arcana::Semantic::Attr::Type::PROFILE))
+        if (HasAttrOnMapped(v, Arcb::Semantic::Attr::Type::PROFILE))
         {
             auto pos = k.find("@@");
             if (pos != std::string::npos)
@@ -803,7 +803,7 @@ AlignOnOS(TABLE& table)
 
     for (const auto& [k, v] : table)
     {
-        if (HasAttrOnMapped(v, Arcana::Semantic::Attr::Type::IFOS))
+        if (HasAttrOnMapped(v, Arcb::Semantic::Attr::Type::IFOS))
         {
             auto pos = k.find("@@");
             if (pos != std::string::npos)
@@ -853,4 +853,4 @@ END_MODULE(Table)
 
 /** @} */
 
-#endif /* __ARCANA_UTIL_TABLE_HELPER__H__ */
+#endif /* __ARCB_UTIL_TABLE_HELPER__H__ */

@@ -1,5 +1,5 @@
-#ifndef __ARCANA_SEMANTIC__H__
-#define __ARCANA_SEMANTIC__H__
+#ifndef __ARCB_SEMANTIC__H__
+#define __ARCB_SEMANTIC__H__
 
 
 #include <array>
@@ -30,7 +30,7 @@ BEGIN_MODULE(Semantic)
 
 /**
  * @file Semantic.h
- * @brief Semantic data model and collector for Arcana DSL.
+ * @brief Semantic data model and collector for Arcb DSL.
  *
  * This header defines the *semantic layer* used after lexing/parsing:
  * - attribute model (`Attr::Attribute`) and validation rules (`Semantic::Rule`)
@@ -99,7 +99,7 @@ BEGIN_NAMESPACE(Attr)
 
 
 /**
- * @brief Attribute kinds supported by Arcana DSL.
+ * @brief Attribute kinds supported by Arcb DSL.
  *
  * These values represent recognized annotations for variables/tasks.
  * The parser collects raw attributes, then semantic logic validates them
@@ -285,7 +285,7 @@ using Inputs = std::vector<std::string>;
 /**
  * @brief Task instruction lines (the command templates to be executed).
  *
- * Instructions are stored as strings and later expanded (`{arc:...}` placeholders, etc.)
+ * Instructions are stored as strings and later expanded (`arcb::...` placeholders, etc.)
  * and eventually executed by the runtime/job system.
  */
 using Instrs = std::vector<std::string>;
@@ -313,7 +313,7 @@ END_NAMESPACE(Task)
 BEGIN_NAMESPACE(Using)
 
 /**
- * @brief `using ...` directive kinds supported by Arcana DSL.
+ * @brief `using ...` directive kinds supported by Arcb DSL.
  *
  * They configure environment-wide defaults, e.g. list of profiles, default engine,
  * max threads.
@@ -384,7 +384,7 @@ struct Enviroment;
  *
  * You use `SemanticOutput` and other utility types without prefixing.
  */
-USE_MODULE(Arcana::Support);
+USE_MODULE(Arcb::Support);
 
 /**
  * @brief Mutable reference wrapper alias.
@@ -552,7 +552,7 @@ struct AssertCheck
 struct InstructionAssign
 {
     std::string              var_name;        //!< Variable identifier
-    std::vector<std::string> var_value;       //!< Raw value string (may contain `{arc:...}` tokens)
+    std::vector<std::string> var_value;       //!< Raw value string (may contain `{arcb::...}` tokens)
     std::vector<std::string> glob_expansion;  //!< Result of glob expansion (if var_value is a glob)
     Attr::List               attributes;      //!< Attributes attached to this variable
     Context                  context;
@@ -816,7 +816,7 @@ struct Profile
  *
  * It also provides post-processing:
  * - alignment (`AlignEnviroment`) to resolve profile/OS mangling overlays
- * - expansion (`Expand`) to replace `{arc:...}` symbols and compute globs
+ * - expansion (`Expand`) to replace `{arcb::...}` symbols and compute globs
  * - assert execution (`ExecuteAsserts`)
  *
  * @note `Expand()` has historically grown complex; the nested `Expander` helper
@@ -848,7 +848,7 @@ public:
      *
      * @return optional error message. Empty optional on success.
      */
-    Arcana_Result AlignEnviroment() noexcept;
+    Arcb_Result AlignEnviroment() noexcept;
 
     /**
      * @brief Validate CLI arguments against the collected environment.
@@ -859,29 +859,29 @@ public:
      * - thread count is valid
      *
      * @param args Parsed CLI arguments.
-     * @return ARCANA_RESULT__OK or ARCANA_RESULT__NOK (or other codes you define).
+     * @return ARCB_RESULT__OK or ARCB_RESULT__NOK (or other codes you define).
      */
-    Arcana_Result CheckArgs(const Arcana::Support::Arguments& args) noexcept;
+    Arcb_Result CheckArgs(const Arcb::Support::Arguments& args) noexcept;
 
     /**
      * @brief Expand all strings in the environment.
      *
      * Typical operations:
-     * - expand internal symbols: `{arc:__profile__}`, `{arc:__os__}`, etc.
-     * - expand variables: `{arc:NAME}`
+     * - expand internal symbols: `{arcb::__profile__}`, `{arcb::__os__}`, etc.
+     * - expand variables: `{arcb::NAME}`
      * - extract filesystem placeholders: `{fs:...}`
      * - compute glob expansion lists for variables
      * - expand strings inside tasks and asserts
      *
      * @return optional error message. Empty optional on success.
      */
-    Arcana_Result Expand() noexcept;
+    Arcb_Result Expand() noexcept;
 
     /**
      * @brief Evaluate collected assertions after expansion.
      * @return optional error message. Empty optional on success.
      */
-    Arcana_Result ExecuteAsserts(std::vector<std::string>& reco_cb) noexcept;
+    Arcb_Result ExecuteAsserts(std::vector<std::string>& reco_cb) noexcept;
 
 
     
@@ -915,7 +915,7 @@ private:
     struct Expander
     {        
         /**
-         * @brief Expansion algorithm selector for `{arc:<mode>:<var>}` patterns.
+         * @brief Expansion algorithm selector for `{arcb::<mode>:<var>}` patterns.
          */
         enum class Algorithm : uint8_t
         {
@@ -931,9 +931,9 @@ private:
 
         Enviroment& env;                  //!< Reference to parent environment
 
-        const std::regex re_intern;       //!< Matches internal `{arc:__...__}` symbols
-        const std::regex re_arc;          //!< Matches `{arc:NAME}` variable references
-        const std::regex re_arc_mode;     //!< Matches `{arc:<mode>:<var>}` variable references
+        const std::regex re_intern;       //!< Matches internal `{arcb::__...__}` symbols
+        const std::regex re_arc;          //!< Matches `{arcb::NAME}` variable references
+        const std::regex re_arc_mode;     //!< Matches `{arcb::<mode>:<var>}` variable references
 
         const ExpansionMap Expansion_Map;
 
@@ -975,9 +975,9 @@ private:
          */
         explicit Expander(Enviroment& e) noexcept
             : env(e)
-            , re_intern(R"(arc::(__profile__|__version__|__release__|__main__|__root__|__max_threads__|__threads__|__os__|__arch__|__path__))")
-            , re_arc(R"(arc::([A-Za-z_][A-Za-z0-9_]*)(?![A-Za-z0-9_\.]))")
-            , re_arc_mode(R"(arc::([a-zA-Z][a-zA-Z0-9]*)\.([A-Za-z][a-z]+)\(\s*([^)]*)\s*\))")
+            , re_intern(R"(arcb::(__profile__|__version__|__release__|__main__|__root__|__max_threads__|__threads__|__os__|__arch__|__path__))")
+            , re_arc(R"(arcb::([A-Za-z_][A-Za-z0-9_]*)(?![A-Za-z0-9_\.]))")
+            , re_arc_mode(R"(arcb::([a-zA-Z][a-zA-Z0-9]*)\.([A-Za-z][a-z]+)\(\s*([^)]*)\s*\))")
             , Expansion_Map ({
                 { "list"   , Algorithm::LIST       },
                 { "inline" , Algorithm::INLINE     },
@@ -995,7 +995,7 @@ private:
          * @param s String to modify in-place.
          * @return optional error message.
          */
-        Arcana_Result ExpandText(std::string& s,
+        Arcb_Result ExpandText(std::string& s,
                                  const std::vector<Algorithm>& allowed_algorithms,
                                  std::vector<std::string>* list_exp = nullptr, 
                                  bool* used_algo = nullptr) noexcept;
@@ -1004,7 +1004,7 @@ private:
          * @brief Expand one side of an assert and update `AssertCheck` accordingly.
          *
          * This is typically responsible for:
-         * - expanding `{arc:...}` tokens inside assert side
+         * - expanding `{arcb::...}` tokens inside assert side
          * - collecting glob expansions for referenced variables (if needed)
          * - extracting `{fs:...}` dependencies base path and setting assert.check
          *
@@ -1012,7 +1012,7 @@ private:
          * @param assert Assert structure to mutate.
          * @return optional error message.
          */
-        Arcana_Result ExpandAssertSide(std::string& stmt, AssertCheck& assert, bool rvalue = false) noexcept;
+        Arcb_Result ExpandAssertSide(std::string& stmt, AssertCheck& assert, bool rvalue = false) noexcept;
 
         
         std::string Get_Error() const { return error.str(); }
@@ -1039,21 +1039,21 @@ private:
          *
          * @note This does *not* validate paths on filesystem; it only parses.
          */
-        Arcana_Result ExtractFsPaths(const std::string& s, std::vector<std::filesystem::path>& out) noexcept;
+        Arcb_Result ExtractFsPaths(const std::string& s, std::vector<std::filesystem::path>& out) noexcept;
 
         /**
-         * @brief Expand internal tokens (`{arc:__...__}`) inside a string.
+         * @brief Expand internal tokens (`{arcb::__...__}`) inside a string.
          * @param s String to modify in-place.
          * @return optional error message.
          */
-        Arcana_Result ExpandInternals(std::string& s) noexcept;
+        Arcb_Result ExpandInternals(std::string& s) noexcept;
 
         /**
-         * @brief Expand all `{arc:NAME}` occurrences repeatedly (handles chaining/nesting).
+         * @brief Expand all `{arcb::NAME}` occurrences repeatedly (handles chaining/nesting).
          * @param s String to modify in-place.
          * @return optional error message (e.g. undefined variable or depth limit).
          */
-        Arcana_Result ExpandArcAll(std::string& s,
+        Arcb_Result ExpandArcAll(std::string& s,
                                    const std::vector<Algorithm>& allowed_algorithms,
                                    std::vector<std::string>* list_exp,
                                    bool* used_algo = nullptr) noexcept;
@@ -1125,7 +1125,7 @@ public:
      * @param prop Attribute property string (raw, may need splitting).
      * @return SemanticOutput containing status and error/hint if any.
      */
-    Arcana_Result Collect_Attribute (const std::string& name, const std::string&  prop);
+    Arcb_Result Collect_Attribute (const std::string& name, const std::string&  prop);
 
     /**
      * @brief Collect one variable assignment statement.
@@ -1133,7 +1133,7 @@ public:
      * @param val  Variable value (raw).
      * @return SemanticOutput containing status and error/hint if any.
      */
-    Arcana_Result Collect_Assignment(const std::string& name, const std::string&  val, bool join = false); 
+    Arcb_Result Collect_Assignment(const std::string& name, const std::string&  val, bool join = false); 
 
     /**
      * @brief Collect one task declaration.
@@ -1141,7 +1141,7 @@ public:
      * @param instrs Instruction lines.
      * @return SemanticOutput containing status and error/hint if any.
      */
-    Arcana_Result Collect_Task      (const std::string& name, const Task::Instrs& instrs);
+    Arcb_Result Collect_Task      (const std::string& name, const Task::Instrs& instrs);
 
     /**
      * @brief Collect a `using` directive.
@@ -1149,7 +1149,7 @@ public:
      * @param opt  Directive argument (raw string).
      * @return SemanticOutput containing status and error/hint if any.
      */
-    Arcana_Result Collect_Using     (const std::string& what, const std::string&  opt); 
+    Arcb_Result Collect_Using     (const std::string& what, const std::string&  opt); 
 
     /**
      * @brief Collect a mapping statement.
@@ -1157,7 +1157,7 @@ public:
      * @param item_2 Right item (destination).
      * @return SemanticOutput containing status and error/hint if any.
      */
-    Arcana_Result Collect_Mapping   (const std::string& item_1, const std::string& item_2);
+    Arcb_Result Collect_Mapping   (const std::string& item_1, const std::string& item_2);
 
     /**
      * @brief Collect an assert statement.
@@ -1169,7 +1169,7 @@ public:
      * @param reason Reason string.
      * @return SemanticOutput containing status and error/hint if any.
      */
-    Arcana_Result Collect_Assert    (std::size_t line, const std::string& stmt, const std::string& lvalue, 
+    Arcb_Result Collect_Assert    (std::size_t line, const std::string& stmt, const std::string& lvalue, 
                                       const std::string& op, const std::string& rvalue, const std::string& reason, const bool actions);
 
     /**
@@ -1200,4 +1200,4 @@ private:
 END_MODULE(Semantic)
 
 
-#endif /* __ARCANA_SEMANTIC__H__ */
+#endif /* __ARCB_SEMANTIC__H__ */

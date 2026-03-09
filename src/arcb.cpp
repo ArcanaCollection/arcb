@@ -16,26 +16,24 @@
 #include <filesystem>
 
 
-USE_MODULE(Arcana);
+USE_MODULE(Arcb);
 
 
 
 
 
-//
-//       ░███    ░█████████    ░██████     ░███    ░███    ░██    ░███    
-//      ░██░██   ░██     ░██  ░██   ░██   ░██░██   ░████   ░██   ░██░██   
-//     ░██  ░██  ░██     ░██ ░██         ░██  ░██  ░██░██  ░██  ░██  ░██  
-//    ░█████████ ░█████████  ░██        ░█████████ ░██ ░██ ░██ ░█████████ 
-//    ░██    ░██ ░██   ░██   ░██        ░██    ░██ ░██  ░██░██ ░██    ░██ 
-//    ░██    ░██ ░██    ░██   ░██   ░██ ░██    ░██ ░██   ░████ ░██    ░██ 
-//    ░██    ░██ ░██     ░██   ░██████  ░██    ░██ ░██    ░███ ░██    ░██ 
-//     
+//     █████╗ ██████╗  ██████╗██████╗ 
+//    ██╔══██╗██╔══██╗██╔════╝██╔══██╗
+//    ███████║██████╔╝██║     ██████╔╝
+//    ██╔══██║██╔══██╗██║     ██╔══██╗
+//    ██║  ██║██║  ██║╚██████╗██████╔╝
+//    ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═════╝ 
+//                                    
 
 
 
-#define CHECK_RESULT(op)                    if (auto res = op; res != Arcana_Result::ARCANA_RESULT__OK) { return (res == Arcana_Result::ARCANA_RESULT__NOK) ? Arcana_Result::ARCANA_RESULT__NOK : Arcana_Result::ARCANA_RESULT__OK; }
-#define CHECK_STR_RESULT(op)                if (auto res = op; res.has_value())                         { ERR(res.value()); return Arcana_Result::ARCANA_RESULT__NOK; }
+#define CHECK_RESULT(op)                    if (auto res = op; res != Arcb_Result::ARCB_RESULT__OK) { return (res == Arcb_Result::ARCB_RESULT__NOK) ? Arcb_Result::ARCB_RESULT__NOK : Arcb_Result::ARCB_RESULT__OK; }
+#define CHECK_STR_RESULT(op)                if (auto res = op; res.has_value())                       { ERR(res.value()); return Arcb_Result::ARCB_RESULT__NOK; }
 
 
 static Semantic::Enviroment env;
@@ -44,15 +42,15 @@ static Semantic::Enviroment env;
 
 
 /**
- * @brief Parse and process the Arcana source file.
+ * @brief Parse and process the Arcb source file.
  *
  * This function performs lexical analysis, parsing, semantic validation,
  * environment alignment, variable expansion, and assertion execution.
  *
  * @param args Parsed command-line arguments.
- * @return Arcana_Result::ARCANA_RESULT__OK on success, NOK on failure.
+ * @return Arcb_Result::ARCB_RESULT__OK on success, NOK on failure.
  */
-static Arcana_Result Parse(const Support::Arguments& args)
+static Arcb_Result Parse(const Support::Arguments& args)
 {
     // INITIALIZE LEXER, GRAMMAR ENGINE, AND PARSER.
     Scan::Lexer          lexer(args.arcfile);
@@ -77,10 +75,10 @@ static Arcana_Result Parse(const Support::Arguments& args)
         std::stringstream ss;
         ss << "Arcfile " << TOKEN_MAGENTA(args.arcfile) << " has no public tasks"; 
         ERR(ss.str());
-        return Arcana_Result::ARCANA_RESULT__NOK;
+        return Arcb_Result::ARCB_RESULT__NOK;
     }
 
-    return Arcana_Result::ARCANA_RESULT__OK;
+    return Arcb_Result::ARCB_RESULT__OK;
 }
 
 
@@ -89,23 +87,23 @@ static Arcana_Result Parse(const Support::Arguments& args)
  * @brief Build the job list from the environment and execute it.
  *
  * @param args Parsed command-line arguments.
- * @return Arcana_Result::ARCANA_RESULT__OK on success, NOK on failure.
+ * @return Arcb_Result::ARCB_RESULT__OK on success, NOK on failure.
  */
-static Arcana_Result Execute(const Support::Arguments& args)
+static Arcb_Result Execute(const Support::Arguments& args)
 {
     Jobs::List               joblist;
     Core::RunOptions         runopt;
     std::vector<std::string> recovery;
-    Arcana_Result            result;
+    Arcb_Result            result;
 
     if (args.verbose) ARC(ANSI_GRAY << "Executing Environment" << ANSI_RESET);
 
     // EXECUTE ASSERT_MSG STATEMENTS.
-    if (env.ExecuteAsserts(recovery) != Arcana_Result::ARCANA_RESULT__OK)
+    if (env.ExecuteAsserts(recovery) != Arcb_Result::ARCB_RESULT__OK)
     {
         if (recovery.size() == 0)
         {
-            return Arcana_Result::ARCANA_RESULT__NOK;
+            return Arcb_Result::ARCB_RESULT__NOK;
         }
     } 
 
@@ -122,7 +120,7 @@ static Arcana_Result Execute(const Support::Arguments& args)
     // EXECUTE JOBS
     result = Core::run_jobs(joblist, runopt);
 
-    if (result == Arcana_Result::ARCANA_RESULT__OK)
+    if (result == Arcb_Result::ARCB_RESULT__OK)
     {
         Cache::Manager::Instance().Freeze();
     }
@@ -133,7 +131,7 @@ static Arcana_Result Execute(const Support::Arguments& args)
                                                                                                                                                                                       
                                                                     
 /**
- * @brief Arcana program entry point.
+ * @brief Arcb program entry point.
  *
  * @param argc Argument count.
  * @param argv Argument vector.

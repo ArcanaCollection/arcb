@@ -2,6 +2,30 @@
 
 All relevant changes to this project will be documented in this file.
 
+## [0.7.0] - 2025-03-09
+Major Release **Lushy Lion** (v 0.7.0)  
+
+### Changes
+- Renamed the tool from **arcana** to **arcb**
+- Variable access grammar from {arc:[algo:]VARNAME} to arcb::VARNAME[.method()] 
+- Attribute **interpreter** to **engine** 
+- List method now follows the grammar **arcb::VARNAME.list([l[, r]])**  
+  The optional parameters control the selected range:
+
+            list()       → expands over the entire variable
+            list(r)      → expands from index 0 to r
+            list(l, r)   → expands from index l to r
+- Inline method now follows the grammar **arcb::VARNAME.inline()**
+
+### Added
+- Attribute **death**
+- New DSL for engine attribute that follows: **@engine \<type\> \[ext\] \<path\>** 
+- Variable method **size** that returns the number of elements of the variable as a string
+- Variable mathod **empty** that returns 1 if the variable is empty, otherwise 0
+
+### Fixed Bugs
+- Minor bugs
+
 ## [0.6.0] - 2025-02-24
 Major Release **Lushy Lion** (v 0.6.0)  
 
@@ -62,7 +86,7 @@ Major Release **Lushy Lion** (v 0.6.0)
 ### Added
 - Variable expasion support for attribute @interpreter
 - new **assert** statement:
-```arcana
+```arcb
 assert "{arc:__os__}" eq "linux" -> "reason message";
 ```
 
@@ -82,7 +106,7 @@ assert "{arc:__os__}" eq "linux" -> "reason message";
 
 ### Added
 - New statement **map** (same as @map attribute), with syntax:
-```arcana
+```arcb
 map <SOURCE> -> <TARGET>;
 ```
 

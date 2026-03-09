@@ -1,5 +1,5 @@
-#ifndef ARCANA_PROFILER_H
-#define ARCANA_PROFILER_H
+#ifndef ARCB_PROFILER_H
+#define ARCB_PROFILER_H
 
 #include <cstdint>
 #include <chrono>
@@ -8,7 +8,7 @@
 #include <mutex>
 #include <cstdio>
 
-namespace Arcana
+namespace Arcb
 {
 namespace Profile
 {
@@ -74,7 +74,7 @@ inline void Dump(FILE* out = stderr)
 
     if (table.size() == 0) return;
 
-    std::fprintf(out, "\n=== ARCANA PROFILE DUMP ===\n");
+    std::fprintf(out, "\n=== ARCB PROFILE DUMP ===\n");
     for (const auto& kv : table)
     {
         const char* name = kv.first.c_str();
@@ -110,10 +110,10 @@ inline void Dump(FILE* = stderr) {}
 #endif
 
 } // namespace Profile
-} // namespace Arcana
+} // namespace Arcb
 
 #if defined(ARC_PROFILE)
-    #define ARC_PROFILE_SCOPE(id,name) ::Arcana::Profile::ScopeTimer arc_profiler__scope__##id(name)
+    #define ARC_PROFILE_SCOPE(id,name) ::Arcb::Profile::ScopeTimer arc_profiler__scope__##id(name)
 #else
     #define ARC_PROFILE_SCOPE(id,name) do { } while (0)
 #endif

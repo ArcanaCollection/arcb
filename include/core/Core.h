@@ -1,11 +1,11 @@
-#ifndef __ARCANA_CORE_H__
-#define __ARCANA_CORE_H__
+#ifndef __ARCB_CORE_H__
+#define __ARCB_CORE_H__
 
 
 
 /**
  * @defgroup Core Core Runtime
- * @brief Core runtime facilities of Arcana.
+ * @brief Core runtime facilities of Arcb.
  *
  * This module provides:
  * - execution of job graphs
@@ -29,7 +29,7 @@
 
 
 BEGIN_MODULE(Core)
-USE_MODULE(Arcana);
+USE_MODULE(Arcb);
 
 
 
@@ -45,18 +45,18 @@ USE_MODULE(Arcana);
 
 
 /**
- * @brief Built-in Arcana symbol identifiers.
+ * @brief Built-in Arcb symbol identifiers.
  *
  * Used to represent special runtime values accessible
- * through the {arc:...} expansion mechanism.
+ * through the {arcb::...} expansion mechanism.
  */
 enum class SymbolType : std::uint8_t
 {
     MAIN        = 0, ///< Main task symbol.
     ROOT,            ///< Project root directory.
     PATH,           
-    VERSION,         ///< Arcana version.
-    RELEASE,         ///< Arcana release name.
+    VERSION,         ///< Arcb version.
+    RELEASE,         ///< Arcb release name.
     PROFILE,         ///< Active build profile.
     THREADS,         ///< Active thread count.
     MAX_THREADS,     ///< Maximum available threads.
@@ -132,9 +132,9 @@ struct RunOptions
  * @param[in] jobs Job execution list.
  * @param[in] opt Runtime execution options.
  *
- * @return ARCANA_RESULT__OK on success, otherwise a failure code.
+ * @return ARCB_RESULT__OK on success, otherwise a failure code.
  */
-Arcana_Result
+Arcb_Result
 run_jobs(Jobs::List& jobs, const RunOptions& opt) noexcept;
 
 
@@ -205,4 +205,4 @@ END_MODULE(Core)
 
 /** @} */
 
-#endif /* __ARCANA_CORE_H__ */
+#endif /* __ARCB_CORE_H__ */

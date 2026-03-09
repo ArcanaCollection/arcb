@@ -4,11 +4,11 @@
 #include <fstream>
 #include <algorithm>
 
-USE_MODULE(Arcana::Scan);
+USE_MODULE(Arcb::Scan);
 
 /**
  * @file Lexer.cpp
- * @brief Arcana DSL lexer implementation.
+ * @brief Arcb DSL lexer implementation.
  *
  * The lexer converts the input script stream into a flat token stream.
  * It also keeps an in-memory copy of all source lines to support diagnostics.
@@ -38,7 +38,7 @@ USE_MODULE(Arcana::Scan);
 
 
 /**
- * @brief Construct a lexer bound to an Arcana script file path.
+ * @brief Construct a lexer bound to an Arcb script file path.
  *
  * The constructor opens the file, caches all lines for later diagnostics,
  * then primes the lexer by reading the first character.

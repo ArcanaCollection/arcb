@@ -15,7 +15,7 @@
 #include <algorithm>
 
 
-USE_MODULE(Arcana);
+USE_MODULE(Arcb);
 
 
 
@@ -31,64 +31,67 @@ USE_MODULE(Arcana);
 
 
 /**
- * @brief Arcana CLI banner printed on startup and help/version output.
+ * @brief Arcb CLI banner printed on startup and help/version output.
  */
-static const char* ARCANA_HEADER = 
+static const char* ARCB_HEADER = 
 #if defined(_WIN32)
 R"HEADER(
-         Arcana - the modern alternative to make.
+         Arcb - the modern alternative to make.
 )HEADER";
 #else
 R"HEADER(
-         ▄████▄ █████▄  ▄█████ ▄████▄ ███  ██ ▄████▄ 
-         ██▄▄██ ██▄▄██▄ ██     ██▄▄██ ██ ▀▄██ ██▄▄██ 
-         ██  ██ ██   ██ ▀█████ ██  ██ ██   ██ ██  ██ 
+         █████╗ ██████╗  ██████╗██████╗ 
+        ██╔══██╗██╔══██╗██╔════╝██╔══██╗
+        ███████║██████╔╝██║     ██████╔╝
+        ██╔══██║██╔══██╗██║     ██╔══██╗
+        ██║  ██║██║  ██║╚██████╗██████╔╝
+        ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═════╝ 
                                          
-         Arcana — the modern alternative to make.
+      arcb — the modern alternative to make.
 )HEADER";
 #endif 
 
 
 /**
- * @brief Print Arcana banner and version.
- * @return Arcana_Result::ARCANA_RESULT__OK
+ * @brief Print Arcb banner and version.
+ * @return Arcb_Result::ARCB_RESULT__OK
  */
-static Arcana_Result Version(void)
+static Arcb_Result Version(void)
 {
-    MSG(ARCANA_HEADER);
-    MSG("Version: " << __ARCANA__VERSION__ << " (" << __ARCANA__RELEASE__ << ")");
+    MSG(ARCB_HEADER);
+    MSG("Version: " << __ARCB__VERSION__ << " (" << __ARCB__RELEASE__ << ")");
 
-    return Arcana_Result::ARCANA_RESULT__OK_AND_EXIT;
+    return Arcb_Result::ARCB_RESULT__OK_AND_EXIT;
 }
 
 
 
 /**
- * @brief Print the Arcana command-line help message.
- * @return Arcana_Result::ARCANA_RESULT__OK
+ * @brief Print the Arcb command-line help message.
+ * @return Arcb_Result::ARCB_RESULT__OK
  */
-static Arcana_Result Help(void)
+static Arcb_Result Help(void)
 {
-    static const char* ARCANA_HELP = R"HELP(
+    static const char* ARCB_HELP = R"HELP(
 
 DESCRIPTION
-  Arcana lets you build your project in a simple and modern way.
+  Arcb lets you build your project in a simple and modern way.
   By defining tasks, statements, and variables, characterizing them with attributes, 
   you'll be able to define the main building steps of your project yourself, 
   in the cleanest possible form.
 
 
 USAGE
-  arcana [task] [options]
-  arcana --help
-  arcana --version
+  arcb [task] [options]
+  arcb --help
+  arcb --version
 
 
 OPTIONS
   --help                Show this help message, then exit.
-  --version             Print the arcana version, then exit.
-  --flush-cache         Flush arcana cache, then exit.
-  --silent              Suppress Arcana runtime logs on stdout.
+  --version             Print the arcb version, then exit.
+  --flush-cache         Flush arcb cache, then exit.
+  --silent              Suppress Arcb runtime logs on stdout.
   -p <profile>          Execute the arcfile with a specific profile. 
                         Profiles must be declared in the arcfile, via 'using profiles' statement. 
   -s <arcfile>          Execute the CLI passed arcfile. 
@@ -104,25 +107,26 @@ OPTIONS
 
 LANGUAGE:
   It's a deliberately lightweight grammar, to avoid the complexities of other builders.
-  It allows the use of native Arcana statements, variable declarations, and tasks, 
+  It allows the use of native Arcb statements, variable declarations, and tasks, 
   with the ability to be customized through attributes that define their behavior and execution order.
   In particular, body tasks are grammar-less, meaning no control over their content is performed.
   This is because we wanted to offer users the freedom to use their preferred engine 
   to execute the instructions.
   This means no custom statements like if/for/while, no strange symbols, and no overly complex syntax.
-  The only exception is the ability to expand variables declared in Arcana within task statements.
+  The only exception is the ability to expand variables declared in Arcb within task statements.
 
   NATIVE STATEMENTS:
-    import <file.arc>                               Imports an arcscript as arcana source file.
+    import <file.arc>                               Imports an arcscript as arcb source file.
     
     using profiles <Profile list>                   Allows the user to define a set of profiles to use 
-                                                    in the arcana code.
+                                                    in the arcb code.
                                                     Any use of profiles not declared in this way will 
                                                     raise an error.
 
-    using default engine <path to engine> Allows the user to define the default engine 
+    using engine <type> [ext] <path>                Allows the user to define the default engine 
                                                     for task bodies. 
                                                     By default, /bin/bash will be used.
+                                                    See attribute @engine for more. 
     
     using threads <max threads number>              Allows the user to define the number of threads on 
                                                     which to parallelize the execution of a specific task.
@@ -139,15 +143,15 @@ LANGUAGE:
 
   
   BUILTIN SYMBOLS:
-    In Arcana there are builtin symbols:
+    In Arcb there are builtin symbols:
 
     __main__                        A symbol that identifies the name of the main task.
                                     It represents the entry point of the execution graph.
 
     __root__                        A symbol that identifies the absolute path of the project root.
-                                    The project root is defined as the directory containing the main Arcana file.
+                                    The project root is defined as the directory containing the main Arcb file.
 
-    __version__                     A symbol that identifies the current version of Arcana.
+    __version__                     A symbol that identifies the current version of Arcb.
                                     It can be used for compatibility checks and diagnostics.
 
     __release__                     A symbol that carry on the current release name. Just for fun.
@@ -167,6 +171,8 @@ LANGUAGE:
     __arch__                        A symbol that identifies the target CPU architecture.
                                     The value is determined at compile time and is platform independent.
 
+    __path__                        Operating System path variable content.
+
 
   VARIABLES:
     NAME = VALUE                    Simple assignment of VALUE into NAME
@@ -185,27 +191,59 @@ LANGUAGE:
         instructions...
     }
 
-    A task declaration follows the linear semantics of 'task NAME(OPTIONAL_INPUTS) { OPTIONAL_STATEMENTS }'.
-    The inputs are not related to the body of the task itself; they only tell arcana that this task 
+    A task declaration follows the linear semantics of 'task NAME() { OPTIONAL_STATEMENTS }'.
+    The inputs are not related to the body of the task itself; they only tell arcb that this task 
     handles these data sets.
     This is to keep track of which statements can be avoided in the cache because they have not changed.
     A task can have 0 inputs and 0 statements.
     If it has 0 statements, it will be optimized by eliminating the task itself, but through the use of 
     attributes like @then, @after, and @pub, it becomes a wrapper that allows the invocation of private tasks.
-    As mentioned above, the only task statement management for arcana translates into the expansion 
-    of arcana variables.
+    As mentioned above, the only task statement management for arcb translates into the expansion 
+    of arcb variables.
     Here too, the logic is quite simple.
 
     VARIABLES EXPANSION:
       There are various types of expansion:
 
-      1) simple expansion, follows the grammar {arc:VARNAME}, results in a simple text replacing with 
-         the contents of a variable.
-      2) inline expansion, follows the grammar {arc:inline:VARNAME}, translates to an inline expansion 
-         of the contents of a glob variable.
-      3) list expansion, follows the grammar {arc:list:VARNAME}, translates into an expansion of the 
-         statement into several sibling statements, each characterized by an entry of the glob type 
-         variable.
+      1) simple expansion
+
+        Follows the grammar arcb::VARNAME and results in a textual substitution
+        with the contents of the referenced variable.
+  
+      2) inline method expansion
+  
+        Follows the grammar arcb::VARNAME.inline() and evaluates a method on the
+        referenced variable, producing an inline textual result inside the
+        current statement.
+  
+      3) list expansion
+  
+        Follows the grammar arcb::VARNAME.list([l[, r]]).
+    
+        This expansion transforms the current statement into multiple sibling
+        statements, one for each element selected from the variable.
+    
+        The optional parameters control the selected range:
+    
+            list()       → expands over the entire variable
+            list(r)      → expands from index 0 to r
+            list(l, r)   → expands from index l to r
+    
+        If multiple list expansions are present in the same statement, arcb
+        checks whether their effective ranges produce compatible sizes. If so,
+        the statement is expanded by performing an inner join across the selected
+        elements.
+    
+        Variables assigned multiple times using the '+=' operator are implicitly
+        treated as lists. Scalar variables are automatically coerced into a
+        single-element list when used with list().
+
+      Other supported methods include:
+    
+        size()   → returns the number of elements of the variable as a string
+        empty()  → returns 1 if the variable is empty, otherwise 0
+    
+        Methods do not support chaining.
 
       For glob expansions, if the passed variable is not a glob, its nominal content will be used.
 
@@ -229,6 +267,8 @@ LANGUAGE:
     @then        <task list>        After the execution of the task with the after attribute, 
                                     the specified tasks will be called.
 
+    @death                          Executing a task marked with 'death' aborts the entire execution.
+
     @requires    <task list>        Before the execution of the task with the after attribute, 
                                     the specified tasks will be called.
 
@@ -243,9 +283,16 @@ LANGUAGE:
 
     @cache <command> <var list>     Untrack, Track and Store cache, see more in CACHE.
 
-    @engine <engine>      Force the task to be executed with the specified engine.
+    @engine <type> [ext] <path>     Execute the task using the specified engine.
+                                    type='raw'  → 'ext' not required. The task body is passed directly 
+                                                to the executable defined by 'path'.
+
+                                    type='file' → 'ext' required (e.g. .py, .sh). The task body is written 
+                                                to a script file with the specified extension and executed 
+                                                using 'path'.
+                                    Optional executable flags may follow the 'path' parameter.
     
-    @multithread                    Enable the multithread for the selected task, not guaranteed.
+    @threading                      Enable the multithread for the selected task, not guaranteed.
 
 CACHE:
     @cache <command> <var list>
@@ -258,34 +305,33 @@ CACHE:
     store    Store current state of resolved files into cache.
 
     Variables:
-    Variables must use Arcana expansion syntax:
+    Variables must use Arcb expansion syntax:
 
-        {arc:VARNAME}
+        arcb::VARNAME
             Use variable value as file path (single value or textual list).
 
-        {arc:list:VARNAME}
+        arcb::VARNAME.list([l[, r]])
             Expand variable using LIST algorithm.
             If VARNAME has a glob expansion, all resolved files are used.
 
     Notes:
     - <var list> accepts one or more variables.
-    - LIST mode is required to resolve glob-expanded variables.
 
 EXAMPLES:
-  arcana
-  arcana <TASK>
-  arcana <TASK> -p Debug
-  arcana <TASK> -p Debug -t 1
-  arcana --flush-cache
-  arcana --pubs
-  arcana --value <TASK>
-  arcana --generate stdout
+  arcb
+  arcb <TASK>
+  arcb <TASK> -p Debug
+  arcb <TASK> -p Debug -t 1
+  arcb --flush-cache
+  arcb --pubs
+  arcb --value <TASK>
+  arcb --generate stdout
 )HELP";
 
-    MSG(ARCANA_HEADER);
-    MSG(ARCANA_HELP);
+    MSG(ARCB_HEADER);
+    MSG(ARCB_HELP);
 
-    return Arcana_Result::ARCANA_RESULT__OK_AND_EXIT;
+    return Arcb_Result::ARCB_RESULT__OK_AND_EXIT;
 }
 
 
@@ -359,9 +405,9 @@ std::size_t Support::levenshtein_distance(const std::string_view& a,
  *
  * @param ctx Source context (typically a file path).
  * @param match Grammar match containing error information.
- * @return Arcana_Result::ARCANA_RESULT__NOK
+ * @return Arcb_Result::ARCB_RESULT__NOK
  */
-Arcana_Result Support::Parser_Error(const std::string& ctx, const Grammar::Match& match, Scan::Lexer& lexer)
+Arcb_Result Support::Parser_Error(const std::string& ctx, const Grammar::Match& match, Scan::Lexer& lexer)
 {
     const auto& [token, found, semtypes, _] = match.Error;
 
@@ -405,7 +451,7 @@ Arcana_Result Support::Parser_Error(const std::string& ctx, const Grammar::Match
     // FLUSH DIAGNOSTIC MESSAGE TO STDERR.
     std::cerr << ss.str();
 
-    return Arcana_Result::ARCANA_RESULT__NOK;
+    return Arcb_Result::ARCB_RESULT__NOK;
 }
 
 
@@ -478,9 +524,9 @@ bool Support::StringViewEq::operator() (std::string_view a, std::string_view b) 
  * @param argc Argument count.
  * @param argv Argument vector.
  * @param args Argument data structure.
- * @return ARCANA_RESULT__OK on success, otherwise a failure code.
+ * @return ARCB_RESULT__OK on success, otherwise a failure code.
  */
-Arcana_Result Support::ParseArgs(int argc, char** argv, Support::Arguments &args)
+Arcb_Result Support::ParseArgs(int argc, char** argv, Support::Arguments &args)
 {
     std::stringstream  ss;
 
@@ -501,7 +547,7 @@ Arcana_Result Support::ParseArgs(int argc, char** argv, Support::Arguments &args
             else
             {
                 ERR("Missing value for option -s");
-                return Arcana_Result::ARCANA_RESULT__NOK;
+                return Arcb_Result::ARCB_RESULT__NOK;
             }
         }
         else if (arg == "-p")
@@ -517,7 +563,7 @@ Arcana_Result Support::ParseArgs(int argc, char** argv, Support::Arguments &args
             else
             {
                 ERR("Missing value for option -p");
-                return Arcana_Result::ARCANA_RESULT__NOK;
+                return Arcb_Result::ARCB_RESULT__NOK;
             }
         }
         else if (arg == "-t")
@@ -535,7 +581,7 @@ Arcana_Result Support::ParseArgs(int argc, char** argv, Support::Arguments &args
                 {
                     ss << "Invalid value for option -t: " << TOKEN_MAGENTA(value) << ". Expected a positive integer.";
                     ERR(ss.str());
-                    return Arcana_Result::ARCANA_RESULT__NOK;
+                    return Arcb_Result::ARCB_RESULT__NOK;
                 }
                 args.threads.svalue = value;
                 args.threads.found  = true;
@@ -545,7 +591,7 @@ Arcana_Result Support::ParseArgs(int argc, char** argv, Support::Arguments &args
             else
             {
                 ERR("Missing value for option -t");
-                return Arcana_Result::ARCANA_RESULT__NOK;
+                return Arcb_Result::ARCB_RESULT__NOK;
             }
         }
         else if (arg == "--value")
@@ -562,7 +608,7 @@ Arcana_Result Support::ParseArgs(int argc, char** argv, Support::Arguments &args
             else
             {
                 ERR("Missing value for option --value");
-                return Arcana_Result::ARCANA_RESULT__NOK;
+                return Arcb_Result::ARCB_RESULT__NOK;
             }
         }
         if (arg == "--generate")
@@ -635,13 +681,13 @@ Arcana_Result Support::ParseArgs(int argc, char** argv, Support::Arguments &args
             // FAIL ON UNRECOGNIZED PARAMETERS.
             ss << "Unknown parameter " << ANSI_BMAGENTA << argv[i] << ANSI_RESET;
             ERR(ss.str());
-            return Arcana_Result::ARCANA_RESULT__NOK;
+            return Arcb_Result::ARCB_RESULT__NOK;
         }
 
         ++i;
     }
 
-    return Arcana_Result::ARCANA_RESULT__OK;
+    return Arcb_Result::ARCB_RESULT__OK;
 }
 
 
@@ -650,9 +696,9 @@ Arcana_Result Support::ParseArgs(int argc, char** argv, Support::Arguments &args
  * @brief Handle command-line arguments.
  *
  * @param args Argument data structure.
- * @return ARCANA_RESULT__OK on success, otherwise a failure code.
+ * @return ARCB_RESULT__OK on success, otherwise a failure code.
  */
-Arcana_Result Support::HandleArgsPreParse(const Arguments &args)
+Arcb_Result Support::HandleArgsPreParse(const Arguments &args)
 {
     if (args.version)
     {
@@ -667,7 +713,7 @@ Arcana_Result Support::HandleArgsPreParse(const Arguments &args)
     if (args.flush_cache)
     {
         Cache::Manager::Instance().EraseCache();
-        return Arcana_Result::ARCANA_RESULT__OK;
+        return Arcb_Result::ARCB_RESULT__OK;
     }
 
     if (args.generator.found)
@@ -678,17 +724,17 @@ Arcana_Result Support::HandleArgsPreParse(const Arguments &args)
         if (!res)
         {
             ERR("Cannot generate template!");
-            return Arcana_Result::ARCANA_RESULT__NOK;
+            return Arcb_Result::ARCB_RESULT__NOK;
         }
 
         ARC("Generated template in " << output << "!");
-        return Arcana_Result::ARCANA_RESULT__OK_AND_EXIT;
+        return Arcb_Result::ARCB_RESULT__OK_AND_EXIT;
     }
 
     if (!Support::file_exists(args.arcfile))
     {
         ERR("Script arcfile not found!");
-        return Arcana_Result::ARCANA_RESULT__NOK;
+        return Arcb_Result::ARCB_RESULT__NOK;
     }
     else
     {
@@ -702,18 +748,18 @@ Arcana_Result Support::HandleArgsPreParse(const Arguments &args)
             if (ec)
             {
                 ERR("chdir failed for " << dir << ": " << ec.message());
-                return Arcana_Result::ARCANA_RESULT__NOK;
+                return Arcb_Result::ARCB_RESULT__NOK;
             }
         }
     }
 
-    return Arcana_Result::ARCANA_RESULT__OK;
+    return Arcb_Result::ARCB_RESULT__OK;
 }
 
 
 
 
-Arcana_Result Support::HandleArgsPostParse(const Arguments &args, Arcana::Semantic::Enviroment& env, Arcana::Jobs::List& list)
+Arcb_Result Support::HandleArgsPostParse(const Arguments &args, Arcb::Semantic::Enviroment& env, Arcb::Jobs::List& list)
 {
     if (args.pubtasks)
     {
@@ -727,7 +773,7 @@ Arcana_Result Support::HandleArgsPostParse(const Arguments &args, Arcana::Semant
             }
         }
         
-        return Arcana_Result::ARCANA_RESULT__OK_AND_EXIT;
+        return Arcb_Result::ARCB_RESULT__OK_AND_EXIT;
     }
     else if (args.profiles)
     {
@@ -761,7 +807,7 @@ Arcana_Result Support::HandleArgsPostParse(const Arguments &args, Arcana::Semant
             MSG(ss.str());
         }
         
-        return Arcana_Result::ARCANA_RESULT__OK_AND_EXIT;
+        return Arcb_Result::ARCB_RESULT__OK_AND_EXIT;
     }
     else if (args.value)
     {
@@ -838,7 +884,7 @@ Arcana_Result Support::HandleArgsPostParse(const Arguments &args, Arcana::Semant
                 }
             }
 
-            return Arcana_Result::ARCANA_RESULT__OK_AND_EXIT;
+            return Arcb_Result::ARCB_RESULT__OK_AND_EXIT;
         }
         
         if (const auto& res = env.ftable.find(wanted); res != env.ftable.end())
@@ -893,7 +939,7 @@ Arcana_Result Support::HandleArgsPostParse(const Arguments &args, Arcana::Semant
                 }
             }
 
-            return Arcana_Result::ARCANA_RESULT__OK_AND_EXIT;
+            return Arcb_Result::ARCB_RESULT__OK_AND_EXIT;
         }
 
         if (const auto st = Core::is_symbol(wanted); st != Core::SymbolType::UNDEFINED)
@@ -914,19 +960,19 @@ Arcana_Result Support::HandleArgsPostParse(const Arguments &args, Arcana::Semant
                 print_line(s);
             }
 
-            return Arcana_Result::ARCANA_RESULT__OK_AND_EXIT;
+            return Arcb_Result::ARCB_RESULT__OK_AND_EXIT;
         }
         
         if (!found)
         {
-            ss << "Arcana does not know any task, variable or symbol called " << TOKEN_MAGENTA(wanted);
+            ss << "Arcb does not know any task, variable or symbol called " << TOKEN_MAGENTA(wanted);
             ERR(ss.str());
         }
 
-        return Arcana_Result::ARCANA_RESULT__OK_AND_EXIT;
+        return Arcb_Result::ARCB_RESULT__OK_AND_EXIT;
     }
 
-    return Arcana_Result::ARCANA_RESULT__OK;
+    return Arcb_Result::ARCB_RESULT__OK;
 }
 
 
