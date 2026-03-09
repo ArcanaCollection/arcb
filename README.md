@@ -1,10 +1,10 @@
 ```
- █████╗ ██████╗  ██████╗ █████╗ ███╗   ██╗ █████╗ 
-██╔══██╗██╔══██╗██╔════╝██╔══██╗████╗  ██║██╔══██╗
-███████║██████╔╝██║     ███████║██╔██╗ ██║███████║
-██╔══██║██╔══██╗██║     ██╔══██║██║╚██╗██║██╔══██║
-██║  ██║██║  ██║╚██████╗██║  ██║██║ ╚████║██║  ██║
-╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝
+ █████╗ ██████╗  ██████╗██████╗ 
+██╔══██╗██╔══██╗██╔════╝██╔══██╗
+███████║██████╔╝██║     ██████╔╝
+██╔══██║██╔══██╗██║     ██╔══██╗
+██║  ██║██║  ██║╚██████╗██████╔╝
+╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═════╝    
 ```                             
 ---
 [![forthebadge](https://img.shields.io/badge/Based-gray?style=flat&logo=c%2B%2B&labelColor=546CAF)]()  
@@ -12,7 +12,7 @@
 [![forthebadge](https://img.shields.io/badge/GNU%2FLinux-Support-gray?labelColor=FFC602&logo=linux&logoColor=black&link=https://www.getgnulinux.org/en/)](https://www.getgnulinux.org/en/)  
 [![forthebadge](https://img.shields.io/badge/Windows-Support%20[BETA]-gray?labelColor=0078D6&logo=windows&logoColor=black)]()  
 
-[![forthebadge](https://img.shields.io/badge/Version-0.4.3-green)](https://gitlab.com/MastroGibbs/arcb)
+[![forthebadge](https://img.shields.io/badge/Version-0.7.0-green)](https://gitlab.com/MastroGibbs/arcb)
 ---
 
 # arcb — an alternative to traditional build systems
@@ -46,8 +46,8 @@ A task is a clear, explicit unit of work.
 You write the commands; arcb handles orchestration:
 
 ```arcb
-task Compile(SOURCES) {
-    gcc -c {arcb::list:SOURCES}
+task Compile() {
+    gcc -c arcb::SOURCES.inline() -o arcb::TARGET
 }
 ```
 Inputs tell the engine what the task depends on, enabling precise caching.
@@ -58,7 +58,7 @@ Globbing that behaves naturally
 Patterns such as:
 
 ```arcb
-src/**.c
+src/**/*.c
 ```
 expand automatically at runtime.
 If a variable isn’t a glob, it is passed through unchanged.
@@ -134,8 +134,3 @@ If you want a builder that does its job without getting in your way, arcb fits p
 See the repository for license details.
 
 Contributions, issues, and feature ideas are welcome.
-
-
-## 🛠️ Developed and mainteined by
-[MastroGibbs (GitLab)](https://gitlab.com/MastroGibbs)  
-[MastroGibbs (GitHub)](https://github.com/Mastro-Gibbs)
